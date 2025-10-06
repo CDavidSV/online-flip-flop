@@ -9,6 +9,9 @@
 # .idea/
 .vscode/
 
+# mac system files
+.DS_Store
+
 # ---- Go ----
 
 # Binaries for programs and plugins
