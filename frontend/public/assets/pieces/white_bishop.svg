@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #e6e6e6;
+      }
+
+      .cls-2 {
+        fill: #f2f2f2;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g id="White_Bishop" data-name="White Bishop">
+      <rect class="cls-2" x="0" width="300" height="300" rx="25" ry="25"/>
+      <path class="cls-1" d="M300,150H0V25C0,11.19,11.19,0,25,0h250C288.81,0,300,11.19,300,25v125Z"/>
+      <rect x="127.78" y="-10.45" width="44.43" height="327.22" rx="20" ry="20" transform="translate(-64.37 150.93) rotate(-45)"/>
+      <rect x="-13.61" y="130.94" width="327.22" height="44.43" rx="20" ry="20" transform="translate(-64.37 150.93) rotate(-45)"/>
+    </g>
+  </g>
+</svg>

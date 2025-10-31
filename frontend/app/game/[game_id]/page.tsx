@@ -6,6 +6,11 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Send, MessageSquare, Check, Flag } from "lucide-react";
+import { Board } from "../board";
+import { GameType } from "@/types/types";
+import { useParams } from "next/navigation";
+import { useGameRoom } from "@/context/roomContext";
+import { useWebSocket } from "@/context/wsContext";
 import {
     Card,
     CardContent,
@@ -14,8 +19,6 @@ import {
     CardTitle,
     CardFooter,
 } from "@/components/ui/card";
-
-const MOCK_ROOM_ID = "Adh3t4";
 
 const initialMoves = [
     { id: 1, player: 1, notation: "e1-e4" },
@@ -33,7 +36,11 @@ const initialChat = [
     },
 ];
 
-const App = () => {
+export default function GamePage() {
+    const { game_id } = useParams<{ game_id: string }>();
+    const { password, username, roomId } = useGameRoom();
+    const { connect } = useWebSocket();
+
     const [moves, setMoves] = useState(initialMoves);
     const [chatMessages, setChatMessages] = useState(initialChat);
     const [messageInput, setMessageInput] = useState("");
@@ -42,6 +49,11 @@ const App = () => {
 
     // Scroll to bottom of chat whenever messages update
     useEffect(() => {
+        console.log(`password: ${password}, username: ${username}, roomId: ${roomId}`);
+
+        // Connect to the websocket server
+        connect(game_id, username, password);
+
         if (chatRef.current) {
             chatRef.current.scrollTo({
                 top: chatRef.current.scrollHeight,
@@ -51,13 +63,12 @@ const App = () => {
     }, [chatMessages]);
 
     const copyRoomId = () => {
-        console.log(`Copied ID: ${MOCK_ROOM_ID}`);
         const textarea = document.createElement("textarea");
-        textarea.value = MOCK_ROOM_ID;
+        textarea.value = game_id;
         document.body.appendChild(textarea);
         textarea.select();
         try {
-            navigator.clipboard.writeText(MOCK_ROOM_ID);
+            navigator.clipboard.writeText(game_id);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
@@ -84,10 +95,8 @@ const App = () => {
                     PLAYER 2 (OPPONENT)
                 </div>
 
-                <div className='flex items-center justify-center w-full max-w-[80vh] and max-h-[80vh] aspect-square bg-gray-200 dark:bg-gray-700 rounded-xl shadow-inner border-4 border-gray-300 dark:border-gray-600 p-2'>
-                    <div className='text-xl text-gray-500 dark:text-gray-400 font-bold p-8 text-center'>
-                        [BOARD GAME RENDERING HERE]
-                    </div>
+                <div className='flex items-center justify-center w-full max-w-[80vh] and max-h-[80vh] aspect-square bg-gray-200 dark:bg-gray-700 rounded-xl shadow-inner border-4 border-gray-300 dark:border-gray-600 '>
+                    <Board type={GameType.FLIPFLOP_5x5} />
                 </div>
 
                 <div className='flex items-center text-lg font-semibold text-blue-600 dark:text-blue-400 mt-4'>
@@ -109,7 +118,7 @@ const App = () => {
                     <CardContent className='flex flex-col gap-3'>
                         <div className='flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-lg'>
                             <span className='font-mono text-base truncate'>
-                                {MOCK_ROOM_ID}
+                                {game_id}
                             </span>
                             <Button
                                 variant='ghost'
@@ -245,5 +254,3 @@ const App = () => {
         </div>
     );
 };
-
-export default App;

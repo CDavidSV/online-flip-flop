@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #e6e6e6;
+      }
+
+      .cls-2 {
+        fill: #f2f2f2;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g id="White_Rook" data-name="White Rook">
+      <rect class="cls-2" x="0" width="300" height="300" rx="25" ry="25"/>
+      <path class="cls-1" d="M300,150H0V25C0,11.19,11.19,0,25,0h250C288.81,0,300,11.19,300,25v125Z"/>
+      <rect x="127.78" y="24.74" width="44.43" height="250.52" rx="15" ry="15"/>
+      <rect x="24.74" y="127.78" width="250.52" height="44.43" rx="15" ry="15"/>
+    </g>
+  </g>
+</svg>

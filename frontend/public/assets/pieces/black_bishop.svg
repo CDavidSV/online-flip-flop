@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+
+      .cls-2 {
+        fill: #1a1a1a;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g id="Black_Bishop" data-name="Black Bishop">
+      <g>
+        <rect x=".5" y=".5" width="299" height="299" rx="24.5" ry="24.5"/>
+        <path d="M275,1c13.23,0,24,10.77,24,24v250c0,13.23-10.77,24-24,24H25c-13.23,0-24-10.77-24-24V25C1,11.77,11.77,1,25,1h250M275,0H25C11.19,0,0,11.19,0,25v250c0,13.81,11.19,25,25,25h250c13.81,0,25-11.19,25-25V25c0-13.81-11.19-25-25-25h0Z"/>
+      </g>
+      <path class="cls-2" d="M300,150H0V25C0,11.19,11.19,0,25,0h250C288.81,0,300,11.19,300,25v125Z"/>
+      <rect class="cls-1" x="127.78" y="-13.61" width="44.43" height="327.22" rx="20" ry="20" transform="translate(-62.13 150) rotate(-45)"/>
+      <rect class="cls-1" x="-13.61" y="127.78" width="327.22" height="44.43" rx="20" ry="20" transform="translate(-62.13 150) rotate(-45)"/>
+    </g>
+  </g>
+</svg>

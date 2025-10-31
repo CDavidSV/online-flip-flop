@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { GameProvider } from "@/context/roomContext";
+import { WebsocketProvider } from "@/context/wsContext";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -29,7 +31,10 @@ export default function RootLayout({
             <body
                 className={`${geistSans.variable} ${geistMono.variable} antialiased`}
             >
-                <GameProvider>{children}</GameProvider>
+                <GameProvider>
+                    <WebsocketProvider>{children}</WebsocketProvider>
+                </GameProvider>
+                <Toaster position="top-right" />
             </body>
         </html>
     );

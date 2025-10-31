@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PInput } from "@/components/ui/p-input";
 import { z } from "zod";
+import { GameType, GameMode } from "@/types/types";
+import RulesDialog from "@/app/rulesDialog";
+import { useGameRoom } from "@/context/roomContext";
+import api from "@/util/api";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
+import { useRouter } from 'next/navigation';
 import {
     Carousel,
     CarouselContent,
@@ -30,8 +37,6 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { GameType, GameMode } from "@/types/types";
-import RulesDialog from "@/app/rulesDialog";
 
 const createGameFormSchema = z.object({
     username: z.string().min(3, "Player name is required"),
@@ -48,10 +53,15 @@ const passwordFormSchema = z.object({
 });
 
 export default function Home() {
+    const router = useRouter();
+    const { setRoomId, setUsername, setPassword } = useGameRoom();
+
     const [newGameDialogOpen, setNewGameDialogOpen] = useState(false);
     const [joinGameDialogOpen, setJoinGameDialogOpen] = useState(false);
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
     const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
+
+    const [createLoading, setCreateLoading] = useState(false);
 
     const [gameType, setGameType] = useState<GameType | null>(null);
     const [gameMode, setGameMode] = useState<GameMode | null>(null);
@@ -94,12 +104,37 @@ export default function Home() {
 
         if (data.password && data.password.length > 0) {
             createGameRequest.password = data.password;
+            setPassword(data.password);
         }
 
+        setCreateLoading(true);
+        setUsername(data.username);
+
         // Submit create game request to backend
+        api.post("/game/create", createGameRequest).then((response) => {
+            const roomId = response.data.game_room_id;
+            setRoomId(roomId);
+            setNewGameDialogOpen(false);
+
+            // Redirect user to game page
+            router.push(`/game/${roomId}`);
+        }).catch((error) => {
+            console.error("Error creating game:", error);
+            toast.error("An error occurred while creating the game.");
+        }).finally(() => {
+            setCreateLoading(false);
+        });
     };
 
-    const joinGameFormSubmit = (data: z.infer<typeof joinGameFormSchema>) => {};
+    const joinGameFormSubmit = (data: z.infer<typeof joinGameFormSchema>) => {
+        setRoomId(data.roomId);
+        setUsername(data.username);
+
+        setJoinGameDialogOpen(false);
+
+        // Redirect user to game page
+        router.push(`/game/${data.roomId}`);
+    };
 
     const passwordFormSubmit = (data: z.infer<typeof passwordFormSchema>) => {};
 
@@ -159,8 +194,9 @@ export default function Home() {
                                 )}
                             ></FormField>
                             <DialogFooter>
-                                <Button className='w-full' type='submit'>
-                                    Create Game
+                                <Button className='w-full' type='submit' disabled={createLoading}>
+                                    {createLoading && <Spinner />}
+                                    {createLoading ? "Creating Game" : "Create Game"}
                                 </Button>
                             </DialogFooter>
                         </form>
