@@ -6,22 +6,22 @@ import (
 	"github.com/CDavidSV/online-flip-flop/api/handlers"
 	"github.com/CDavidSV/online-flip-flop/api/middlewares"
 	"github.com/CDavidSV/online-flip-flop/config"
-	"github.com/CDavidSV/online-flip-flop/game"
 	"github.com/CDavidSV/online-flip-flop/internal/validator"
+	"github.com/CDavidSV/online-flip-flop/ws"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 )
 
-func loadRoutes(e *echo.Echo, gs *game.Server) {
+func loadRoutes(e *echo.Echo, gs *ws.Server) {
 	h := handlers.NewHandler(gs)
 
 	e.GET("/health", h.Health)
 
 	gameGroup := e.Group("/game")
-	gameGroup.POST("/create", h.CreateGame)
-	gameGroup.GET("/:id", h.GetGame)
-	gameGroup.Any("/ws", game.WSHandler(gs))
+	gameGroup.POST("/room/create", h.PostCreateGame)
+	gameGroup.GET("/room/:id", h.GetGameRoom)
+	gameGroup.Any("/ws", ws.WSHandler(gs))
 }
 
 func main() {
@@ -43,7 +43,7 @@ func main() {
 	e.Use(middlewares.Logger)
 	e.Use(middleware.CORSWithConfig(config.CorsConfig))
 
-	gameServer := game.NewGameServer(e.Logger)
+	gameServer := ws.NewGameServer(e.Logger)
 	loadRoutes(e, gameServer)
 
 	// Start Server

@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/CDavidSV/online-flip-flop/internal/types"
+	"github.com/CDavidSV/online-flip-flop/internal/apperrors"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 )
@@ -64,10 +64,7 @@ func (cv *CustomValidator) Validate(i any) error {
 			}
 		}
 
-		return echo.NewHTTPError(http.StatusBadRequest, types.JSONMap{
-			"message": "Data validation failed",
-			"errors":  errorsResponse,
-		})
+		return echo.NewHTTPError(http.StatusBadRequest, apperrors.New(apperrors.ErrValidationFailed, errorsResponse))
 	}
 
 	return nil
