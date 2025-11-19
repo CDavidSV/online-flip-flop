@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/go-chi/cors"
 	"github.com/labstack/gommon/log"
 )
 
@@ -13,15 +13,17 @@ var (
 /_/   /_/_/ .___/     /_/   /_/\____/ .___/
          /_/                       /_/      `
 
-	Version = "0.4.0"
+	Version = "0.5.0"
 	Host    = ":8000"
 
 	APILogLevel = log.INFO
 	WSLogLevel  = "info"
-	CorsConfig  = middleware.CORSConfig{
-		AllowOrigins:  []string{"*"},
-		AllowMethods:  []string{"GET", "POST", "DELETE", "HEAD", "OPTION", "PUT"},
-		AllowHeaders:  []string{"User-Agent", "Content-Type", "Accept", "Accept-Encoding", "Accept-Language", "Cache-Control", "Connection", "DNT", "Host", "Origin", "Pragma", "Referer", "Cookie"},
-		ExposeHeaders: []string{"Link"},
+	CorsConfig  = cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS"},
+		AllowedHeaders:   []string{"User-Agent", "Content-Type", "Accept", "Accept-Encoding", "Cache-Control"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300,
 	}
 )

@@ -2,35 +2,35 @@ package ws
 
 import (
 	"encoding/json"
+	"log/slog"
 	"sync"
 
 	"github.com/CDavidSV/online-flip-flop/games"
 	"github.com/CDavidSV/online-flip-flop/internal/apperrors"
 	"github.com/CDavidSV/online-flip-flop/internal/types"
-	"github.com/google/uuid"
 	"github.com/lxzan/gws"
 )
 
-const (
-	maxPlayersPerRoom = 2
-
-	gameStatusWaiting = "waiting_for_players"
-	gameStatusOngoing = "ongoing"
-	gameStatusEnded   = "ended"
-)
+type Status string
 
 type PlayerSlot struct {
 	ID       string           `json:"id"`
 	Username string           `json:"username"`
 	Color    games.PlayerSide `json:"color"`
 	IsAI     bool             `json:"is_ai"`
+	IsActive bool             `json:"is_active"`
 	conn     *gws.Conn        `json:"-"`
+}
+
+type ConnectionInfo struct {
+	conn        *gws.Conn
+	isSpectator bool
 }
 
 type GameState struct {
 	Board       string           `json:"board"`
 	CurrentTurn games.PlayerSide `json:"current_turn"`
-	Status      string           `json:"status"`
+	Status      Status           `json:"status"`
 	Winner      games.PlayerSide `json:"winner"`
 	Players     []PlayerSlot     `json:"players"`
 }
@@ -40,133 +40,200 @@ type GameRoom struct {
 	Game     games.Game
 	GameMode GameMode
 	GameType games.GameType
-	players  map[string]PlayerSlot
+	player1  *PlayerSlot
+	player2  *PlayerSlot
+	conns    map[string]ConnectionInfo
+	status   Status
+	logger   *slog.Logger
 	mu       sync.RWMutex
 }
 
-func NewGameRoom(id string, game games.Game, gameMode GameMode, gameType games.GameType) *GameRoom {
+const (
+	MaxPlayersPerRoom int = 2
+
+	StatusWaiting Status = "waiting_for_players"
+	StatusOngoing Status = "ongoing"
+	StatusClosed  Status = "closed"
+)
+
+func NewGameRoom(id string, game games.Game, gameMode GameMode, gameType games.GameType, logger *slog.Logger) *GameRoom {
 	return &GameRoom{
 		ID:       id,
 		Game:     game,
 		GameMode: gameMode,
 		GameType: gameType,
-		players:  make(map[string]PlayerSlot),
+		conns:    make(map[string]ConnectionInfo),
+		status:   StatusWaiting,
+		logger:   logger,
 	}
-}
-
-func (gr *GameRoom) nextAvailableColor() games.PlayerSide {
-	if len(gr.players) >= maxPlayersPerRoom {
-		return -1
-	}
-
-	for _, playerSlot := range gr.players {
-		if playerSlot.Color == games.COLOR_WHITE {
-			return games.COLOR_BLACK
-		}
-	}
-	return games.COLOR_WHITE
 }
 
 func (gr *GameRoom) broadcastGameUpdate(action MsgType, payload any, skipID *string) {
 	msg := NewMessage(action, payload)
 
-	for _, player := range gr.players {
-		if player.IsAI || (skipID != nil && player.ID == *skipID) {
+	b := gws.NewBroadcaster(gws.OpcodeText, msg)
+	defer b.Close()
+
+	for id, connData := range gr.conns {
+		if connData.isSpectator || (skipID != nil && id == *skipID) {
 			continue
 		}
-		_ = player.conn.WriteMessage(gws.OpcodeText, msg)
+
+		err := b.Broadcast(connData.conn)
+		if err != nil {
+			gr.logger.Error("Failed to broadcast message", "error", err)
+		}
 	}
 }
 
-func (gr *GameRoom) getPlayer(id string) (PlayerSlot, bool) {
-	player, exists := gr.players[id]
-	return player, exists
-}
-
-func (gr *GameRoom) isRoomFull() bool {
-	return len(gr.players) >= maxPlayersPerRoom
-}
-
-func (gr *GameRoom) disconnectAllPlayers() {
-	for _, p := range gr.players {
-		_ = p.conn.WriteClose(1000, nil)
+func (gr *GameRoom) endGame(reason string, winner games.PlayerSide) {
+	gr.status = StatusClosed
+	payload := types.JSONMap{"reason": reason}
+	if winner != -1 {
+		payload["winner"] = winner
 	}
-}
-
-func (gr *GameRoom) determineGameStatus() string {
-	if gr.Game.IsGameEnded() {
-		return gameStatusEnded
-	}
-	if len(gr.players) < maxPlayersPerRoom {
-		return gameStatusWaiting
-	}
-	return gameStatusOngoing
+	gr.broadcastGameUpdate(MsgTypeGameEnd, payload, nil)
 }
 
 func (gr *GameRoom) gameState() GameState {
-	players := make([]PlayerSlot, 0, len(gr.players))
-	for _, slot := range gr.players {
-		players = append(players, slot)
+	players := make([]PlayerSlot, 2)
+	if gr.player1 != nil {
+		players[0] = *gr.player1
+	}
+	if gr.player2 != nil {
+		players[1] = *gr.player2
 	}
 
 	return GameState{
 		Board:       gr.Game.GetBoardString(),
 		CurrentTurn: gr.Game.CurrentTurn(),
 		Players:     players,
-		Status:      gr.determineGameStatus(),
+		Status:      gr.status,
 	}
 }
 
-func (gr *GameRoom) AssignPlayer(conn *gws.Conn, username string) (PlayerSlot, error) {
+func (gr *GameRoom) getPlayer(id string) *PlayerSlot {
+	if gr.player1 != nil && gr.player1.ID == id {
+		return gr.player1
+	}
+	if gr.player2 != nil && gr.player2.ID == id {
+		return gr.player2
+	}
+	return nil
+}
+
+func (gr *GameRoom) playersInactive() bool {
+	return (gr.player1 == nil || !gr.player1.IsActive) && (gr.player2 == nil || !gr.player2.IsActive)
+}
+
+func (gr *GameRoom) playersActive() bool {
+	return !gr.playersInactive()
+}
+
+func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpectator bool, err error) {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
-	// Check if game has ended
 	if gr.Game.IsGameEnded() {
-		return PlayerSlot{}, apperrors.ErrGameEnded
+		return false, apperrors.ErrGameEnded
 	}
 
-	// Check if room is full
-	if gr.isRoomFull() {
-		return PlayerSlot{}, apperrors.ErrGameFull
+	if gr.status == StatusClosed {
+		return false, apperrors.ErrRoomClosed
 	}
 
-	// Determine color based on which slot is available
-	color := gr.nextAvailableColor()
-
-	// Create player slot
-	playerSlot := PlayerSlot{
-		ID:       uuid.New().String(),
-		Username: username,
-		Color:    color,
-		conn:     conn,
-	}
-	gr.players[playerSlot.ID] = playerSlot
-
-	// If the room is now full, start the game
-	if gr.isRoomFull() {
-		state := gr.gameState()
-		gr.broadcastGameUpdate(MsgTypeGameStart, state, nil)
+	connInfo := ConnectionInfo{
+		conn:        conn,
+		isSpectator: false,
 	}
 
-	return playerSlot, nil
+	player := gr.getPlayer(id)
+	if player != nil {
+		// Reconnecting player
+		player.conn = conn
+		player.IsActive = true
+		gr.conns[id] = connInfo
+		return false, nil
+	}
+
+	var assignedSlot **PlayerSlot
+	var color games.PlayerSide
+
+	// Check for available player slots
+	if gr.player1 == nil {
+		assignedSlot = &gr.player1
+		color = games.COLOR_WHITE
+	} else if gr.player2 == nil {
+		assignedSlot = &gr.player2
+		color = games.COLOR_BLACK
+	}
+
+	if assignedSlot != nil {
+		*assignedSlot = &PlayerSlot{
+			ID:       id,
+			Username: username,
+			Color:    color,
+			IsAI:     false,
+			IsActive: true,
+			conn:     conn,
+		}
+		gr.conns[id] = connInfo
+		return false, nil
+	}
+
+	// Join as spectator
+	connInfo.isSpectator = true
+	gr.conns[id] = connInfo
+
+	return true, nil
 }
 
-func (gr *GameRoom) RemovePlayer(id string) {
+func (gr *GameRoom) LeaveRoom(id string) {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
-	delete(gr.players, id)
+	player := gr.getPlayer(id)
+	if player != nil {
+		player.IsActive = false
+		player.conn = nil
+	}
+
+	delete(gr.conns, id)
+
+	// If no players remain, close the room
+	if gr.playersInactive() {
+		gr.status = StatusClosed
+
+		if len(gr.conns) > 0 {
+			// Notify spectators that the room is closed
+			gr.broadcastGameUpdate(MsgTypeGameEnd, types.JSONMap{
+				"reason": "players_left",
+			}, nil)
+		}
+	}
 }
 
-// HandleMove processes a player's move, validates it, and broadcasts the result
+func (gr *GameRoom) StartGame() {
+	gr.mu.Lock()
+	defer gr.mu.Unlock()
+
+	if gr.status == StatusOngoing || gr.status == StatusClosed {
+		return
+	}
+
+	if gr.playersActive() {
+		gr.status = StatusOngoing
+		gr.broadcastGameUpdate(MsgTypeGameStart, gr.gameState(), nil)
+	}
+}
+
 func (gr *GameRoom) HandleMove(clientID string, movePayload json.RawMessage) error {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
 	// Verify the player exists and get their color
-	player, exists := gr.getPlayer(clientID)
-	if !exists {
+	player := gr.getPlayer(clientID)
+	if player == nil {
 		return apperrors.ErrClientNotFound
 	}
 
@@ -180,35 +247,19 @@ func (gr *GameRoom) HandleMove(clientID string, movePayload json.RawMessage) err
 		return err
 	}
 
-	move := types.JSONMap{
+	gr.broadcastGameUpdate(MsgTypeMove, types.JSONMap{
 		"player_id": clientID,
 		"color":     player.Color,
 		"move":      movePayload,
 		"board":     gr.Game.GetBoardString(),
-	}
+	}, &clientID)
 
-	gameEnded := gr.Game.IsGameEnded()
-	var endPayload types.JSONMap
-	if gameEnded {
+	if gr.Game.IsGameEnded() {
 		if gr.Game.GetWinner() == -1 {
-			endPayload = types.JSONMap{"reason": "draw"}
+			gr.endGame("draw", -1)
 		} else {
-			endPayload = types.JSONMap{
-				"reason": "normal",
-				"winner": gr.Game.GetWinner(),
-			}
+			gr.endGame("normal", gr.Game.GetWinner())
 		}
-	}
-
-	gr.broadcastGameUpdate(MsgTypeMove, move, &clientID)
-
-	if gameEnded {
-		gr.broadcastGameUpdate(MsgTypeGameEnd, endPayload, nil)
-	}
-
-	// Disconnect players if game ended
-	if gameEnded {
-		gr.disconnectAllPlayers()
 	}
 
 	return nil
@@ -218,16 +269,20 @@ func (gr *GameRoom) HandleForfeit(clientID string) error {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
-	player, ok := gr.players[clientID]
-	if !ok {
+	player := gr.getPlayer(clientID)
+	if player == nil {
 		return apperrors.ErrClientNotFound
 	}
 
-	gr.broadcastGameUpdate(MsgTypeGameEnd, types.JSONMap{
-		"reason": "opponent_forfeit",
-	}, &player.ID)
+	// Determine opponent's color
+	var opponentColor games.PlayerSide
+	if player.Color == games.COLOR_WHITE {
+		opponentColor = games.COLOR_BLACK
+	} else {
+		opponentColor = games.COLOR_WHITE
+	}
 
-	gr.disconnectAllPlayers()
+	gr.endGame("forfeit", opponentColor)
 	return nil
 }
 
@@ -236,4 +291,22 @@ func (gr *GameRoom) GetGameState() GameState {
 	defer gr.mu.RUnlock()
 
 	return gr.gameState()
+}
+
+func (gr *GameRoom) GetPlayerConnections() []*gws.Conn {
+	gr.mu.RLock()
+	defer gr.mu.RUnlock()
+
+	conns := make([]*gws.Conn, 0, len(gr.conns))
+	for _, connData := range gr.conns {
+		conns = append(conns, connData.conn)
+	}
+	return conns
+}
+
+func (gr *GameRoom) IsClosed() bool {
+	gr.mu.RLock()
+	defer gr.mu.RUnlock()
+
+	return gr.status == StatusClosed
 }

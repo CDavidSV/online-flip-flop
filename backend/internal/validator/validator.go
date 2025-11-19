@@ -2,20 +2,17 @@ package validator
 
 import (
 	"fmt"
-	"net/http"
 	"reflect"
 	"strings"
 
-	"github.com/CDavidSV/online-flip-flop/internal/apperrors"
 	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v4"
 )
 
 type CustomValidator struct {
 	v *validator.Validate
 }
 
-type ValidationErrorDTO struct {
+type ValidationError struct {
 	Field string `json:"field"`
 	Msg   string `json:"error"`
 }
@@ -52,20 +49,20 @@ func getErrorMsg(tag, param string) string {
 	}
 }
 
-func (cv *CustomValidator) Validate(i any) error {
+func (cv *CustomValidator) Validate(i any) (bool, []ValidationError) {
 	if err := cv.v.Struct(i); err != nil {
 		validationErrors := err.(validator.ValidationErrors)
 
-		errorsResponse := make([]ValidationErrorDTO, len(validationErrors))
+		errorsResponse := make([]ValidationError, len(validationErrors))
 		for i, ve := range validationErrors {
-			errorsResponse[i] = ValidationErrorDTO{
+			errorsResponse[i] = ValidationError{
 				Field: ve.Field(),
 				Msg:   getErrorMsg(ve.Tag(), ve.Param()),
 			}
 		}
 
-		return echo.NewHTTPError(http.StatusBadRequest, apperrors.New(apperrors.ErrValidationFailed, errorsResponse))
+		return false, errorsResponse
 	}
 
-	return nil
+	return true, nil
 }

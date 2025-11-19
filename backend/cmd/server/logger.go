@@ -1,12 +1,13 @@
-package middlewares
+package main
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/labstack/echo/v4"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 var methodColors map[string]string = map[string]string{
@@ -52,22 +53,23 @@ func styleMethod(method string) string {
 	return style.Render(fmt.Sprintf(" %-8s ", method))
 }
 
-func Logger(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		ip := c.RealIP()
-		path := c.Path()
-		method := styleMethod(c.Request().Method)
+func Logger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		ww := middleware.NewWrapResponseWriter(res, req.ProtoMajor)
+
+		ip := req.RemoteAddr
+		if ip == "" {
+			ip = req.Header.Get("X-Forwarded-For")
+		}
+		path := req.URL.Path
+		method := styleMethod(req.Method)
 		now := time.Now()
 
-		if err := next(c); err != nil {
-			c.Error(err)
-		}
+		next.ServeHTTP(ww, req)
 
-		res := c.Response()
 		took := time.Since(now).String()
-		status := styleStatusCode(res.Status)
+		status := styleStatusCode(ww.Status())
 
 		fmt.Printf("%s |%s| %13s | %15s |%s %s\n", now.Format("2006/01/02 - 15:04:05"), status, took, ip, method, path)
-		return nil
-	}
+	})
 }

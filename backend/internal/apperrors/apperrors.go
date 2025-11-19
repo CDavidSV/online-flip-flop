@@ -16,12 +16,13 @@ func (e *AppError) ToJSON() []byte {
 }
 
 var (
-	ErrValidationFailed      = errors.New("validation_failed")
-	ErrInvalidRequestPayload = errors.New("invalid_request_payload")
-
+	ErrValidationFailed         = errors.New("validation_failed")
+	ErrInvalidRequestPayload    = errors.New("invalid_request_payload")
+	ErrAlreadyInGame            = errors.New("already_in_game")
 	ErrInvalidMessageFormat     = errors.New("invalid_message_format")
 	ErrInvalidMessagePayload    = errors.New("invalid_message_payload")
 	ErrRoomNotFound             = errors.New("room_not_found")
+	ErrRoomClosed               = errors.New("room_closed")
 	ErrAlreadyInRoom            = errors.New("already_in_room")
 	ErrClientNotFound           = errors.New("client_not_found")
 	ErrInvalidAction            = errors.New("invalid_action")
