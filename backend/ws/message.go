@@ -10,28 +10,29 @@ import (
 type MsgType string
 
 const (
-	MsgTypeCreateRoom  MsgType = "create"
-	MsgTypeRoomCreated MsgType = "created"
-	MsgTypeJoinRoom    MsgType = "join"
-	MsgTypeJoinedRoom  MsgType = "joined"
-	MsgTypeLeaveRoom   MsgType = "leave"
-	MsgTypeLeftRoom    MsgType = "left"
-	MsgTypeMove        MsgType = "move"
-	MsgTypeGameStart   MsgType = "start"
-	MsgTypeGameEnd     MsgType = "end"
-	MsgTypeForfeit     MsgType = "forfeit"
-	MsgTypeSendMessage MsgType = "message"
-	MsgTypeChat        MsgType = "chat"
-	MsgTypeError       MsgType = "error"
+	MsgTypeCreateRoom  MsgType = "create"  // Create a new game room
+	MsgTypeRoomCreated MsgType = "created" // Response after creating a room
+	MsgTypeJoinRoom    MsgType = "join"    // Join an existing game room
+	MsgTypeJoinedRoom  MsgType = "joined"  // Response after joining a room
+	MsgTypeLeaveRoom   MsgType = "leave"   // Leave the current game room
+	MsgTypeLeftRoom    MsgType = "left"    // Response after leaving a room
+	MsgTypeMove        MsgType = "move"    // Make a move in the game
+	MsgTypeGameStart   MsgType = "start"   // Notification that the game has started
+	MsgTypeGameEnd     MsgType = "end"     // Notification that the game has ended
+	MsgTypeForfeit     MsgType = "forfeit" // Forfeit the game
+	MsgTypeSendMessage MsgType = "message" // Send a message
+	MsgTypeChat        MsgType = "chat"    // New chat message
+	MsgTypeError       MsgType = "error"   // Error message
 )
 
+// Incomming message from a websocket connection.
 type IncomingMessage struct {
-	Type    MsgType         `json:"action"`
-	Payload json.RawMessage `json:"payload,omitempty"`
+	Type    MsgType         `json:"type" validate:"required"` // The type or action of the message
+	Payload json.RawMessage `json:"payload,omitempty"`        // Any additional data required for the type of message.
 }
 
 type OutgoingMessage struct {
-	Type    MsgType `json:"action"`
+	Type    MsgType `json:"type"`
 	Payload any     `json:"payload,omitempty"`
 }
 
@@ -46,6 +47,11 @@ type JoinRoom struct {
 	Username string `json:"username" validate:"required,min=2,max=20"`
 }
 
+type ChatMessage struct {
+	Content string `json:"content" validate:"required,min=1,max=1000"`
+}
+
+// Constructs a new error message in JSON format to be sent through websocket.
 func NewErrorMessage(appErr *apperrors.AppError) []byte {
 	errMsg := OutgoingMessage{
 		Type:    MsgTypeError,
@@ -56,6 +62,7 @@ func NewErrorMessage(appErr *apperrors.AppError) []byte {
 	return errMsgJSON
 }
 
+// Constructs a new message in JSON format to be sent through websocket.
 func NewMessage(action MsgType, payload any) []byte {
 	msg := OutgoingMessage{
 		Type:    action,

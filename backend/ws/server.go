@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/CDavidSV/online-flip-flop/games"
@@ -34,6 +35,8 @@ type Server struct {
 	validator *validator.CustomValidator
 }
 
+// Loads a value from the session storage of a connection.
+// Requires a type parameter and the key value.
 func mustLoad[T any](s gws.SessionStorage, key string) (v T) {
 	if value, ok := s.Load(key); ok {
 		return value.(T)
@@ -41,12 +44,17 @@ func mustLoad[T any](s gws.SessionStorage, key string) (v T) {
 	return
 }
 
+// Builds and sends an error message to a websocket connection.
 func (s *Server) writeError(socket *gws.Conn, err error, details ...any) {
 	socket.WriteAsync(gws.OpcodeText, NewErrorMessage(apperrors.New(err, details...)), func(err error) {
-		s.logger.Error("Failed to send error message", "error", err)
+		if err != nil {
+			s.logger.Error("Failed to send error message", "error", err)
+		}
 	})
 }
 
+// Loads the clientID and GameRoom from the connection's session storage.
+// Returns a boolean value indicating if the client is currently in a room.
 func (s *Server) getClientContext(socket *gws.Conn) (clientID string, room *GameRoom, hasRoom bool) {
 	clientID = mustLoad[string](socket.Session(), "client_id")
 	room = mustLoad[*GameRoom](socket.Session(), "room")
@@ -54,22 +62,29 @@ func (s *Server) getClientContext(socket *gws.Conn) (clientID string, room *Game
 	return
 }
 
-func (s *Server) generateRoomID() string {
+// Generate a 4 character room ID.
+func (s *Server) generateRoomID() (string, error) {
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	idLength := 4
+	maxAttempts := 1000
 
 	// Iterate until we find a unique ID
-	for {
-		var id string
+	id := ""
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		var builder strings.Builder
 		for range idLength {
-			id += string(charset[rand.Intn(len(charset))])
+			builder.WriteByte(charset[rand.Intn(len(charset))])
 		}
+		id = builder.String()
 		if _, exists := s.rooms.Load(id); !exists {
-			return id
+			return id, nil
 		}
 	}
+
+	return id, apperrors.ErrIDGenerationFailed
 }
 
+// Returns a new websocket server instance.
 func NewGameServer(logger *slog.Logger) *Server {
 	return &Server{
 		rooms:     gws.NewConcurrentMap[string, *GameRoom](),
@@ -78,6 +93,7 @@ func NewGameServer(logger *slog.Logger) *Server {
 	}
 }
 
+// Websocket handler.
 func WSHandler(server *Server) http.HandlerFunc {
 	upgrader := gws.NewUpgrader(server, &gws.ServerOption{
 		ParallelEnabled:   true,
@@ -97,6 +113,7 @@ func WSHandler(server *Server) http.HandlerFunc {
 	}
 }
 
+// Retrieves a game room by its ID.
 func (s *Server) GetGameRoom(roomID string) *GameRoom {
 	room, exists := s.rooms.Load(roomID)
 	if !exists {
@@ -106,6 +123,7 @@ func (s *Server) GetGameRoom(roomID string) *GameRoom {
 	return room
 }
 
+// Deletes a game room from the server and clears the room reference from all connected clients.
 func (s *Server) DeleteGameRoom(room *GameRoom) {
 	s.rooms.Delete(room.ID)
 	for _, conn := range room.GetPlayerConnections() {
@@ -158,6 +176,12 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 		return
 	}
 
+	// Validate incoming message
+	if ok, errors := s.validator.Validate(&msg); !ok {
+		s.writeError(socket, apperrors.ErrValidationFailed, errors)
+		return
+	}
+
 	switch msg.Type {
 	case MsgTypeCreateRoom:
 		var payload CreateRoom
@@ -172,9 +196,18 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 			return
 		}
 
-		clientID := mustLoad[string](socket.Session(), "client_id")
+		clientID, _, hasRoom := s.getClientContext(socket)
+		if hasRoom {
+			s.writeError(socket, apperrors.ErrAlreadyInGame)
+			return
+		}
 
-		roomID := s.generateRoomID()
+		roomID, err := s.generateRoomID()
+		if err != nil {
+			s.writeError(socket, err)
+			return
+		}
+
 		game, _ := games.NewGame(payload.GameType)
 		room := NewGameRoom(roomID, game, payload.GameMode, payload.GameType, s.logger)
 
@@ -273,8 +306,28 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 		}
 		s.DeleteGameRoom(room)
 	case MsgTypeSendMessage:
-		// TODO: Handle send message action
+		var payload ChatMessage
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			s.writeError(socket, apperrors.ErrInvalidMessageFormat)
+			return
+		}
+
+		// Validate payload
+		if ok, errors := s.validator.Validate(&payload); !ok {
+			s.writeError(socket, apperrors.ErrValidationFailed, errors)
+			return
+		}
+
+		clientID, room, hasRoom := s.getClientContext(socket)
+		if !hasRoom {
+			s.writeError(socket, apperrors.ErrNotInGame)
+			return
+		}
+
+		if err := room.HandleChatMessage(clientID, payload.Content); err != nil {
+			s.writeError(socket, err)
+		}
 	default:
-		s.writeError(socket, apperrors.ErrInvalidAction)
+		s.writeError(socket, apperrors.ErrInvalidMsgType)
 	}
 }

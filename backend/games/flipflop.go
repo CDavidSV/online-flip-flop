@@ -56,6 +56,7 @@ type FlipFlopMove struct {
 	To   string
 }
 
+// Encodes the current board state into a string representation (similar to a fen string).
 func encodeBoardState(board [][]*FFPiece, currentTurn PlayerSide) string {
 	// o -> Empty square
 	// a -> Black Rook
@@ -70,6 +71,8 @@ func encodeBoardState(board [][]*FFPiece, currentTurn PlayerSide) string {
 	// [a, o, a]
 	// [y, b, o]
 	// [o, x, x]
+
+	// Example string: "aoa/ybo/oxx 1"
 
 	fenStr := ""
 	for i, row := range board {
@@ -106,6 +109,7 @@ func encodeBoardState(board [][]*FFPiece, currentTurn PlayerSide) string {
 	return fenStr
 }
 
+// Retuns a string of the name of the piece.
 func (p *FFPiece) String() string {
 	if p.Side == SIDE_ROOK {
 		return "rook"
@@ -113,6 +117,7 @@ func (p *FFPiece) String() string {
 	return "bishop"
 }
 
+// Initializes the game board and places the pieces in their starting positions.
 func (g *FlipFlop) createBoard() {
 	rows := int(g.Type)
 	cols := rows
@@ -122,6 +127,7 @@ func (g *FlipFlop) createBoard() {
 		g.board[r] = make([]*FFPiece, cols)
 	}
 
+	// White pieces are placed in the first row
 	for c := range cols {
 		whitePiece := &FFPiece{
 			Pos:   FFBoardPos{Row: 0, Col: c},
@@ -142,6 +148,7 @@ func (g *FlipFlop) createBoard() {
 	}
 }
 
+// Checks if the provided position is a goal square.
 func (g *FlipFlop) isGoalSquare(pos FFBoardPos) bool {
 	if g.Type == FlipFlop3x3 {
 		if pos.Col == 1 && (pos.Row == 0 || pos.Row == 2) {
@@ -156,6 +163,7 @@ func (g *FlipFlop) isGoalSquare(pos FFBoardPos) bool {
 	return false
 }
 
+// Parses a position string like "A1" into board coordinates.
 func (g *FlipFlop) parsePosition(pos string) (*FFBoardPos, error) {
 	if len(pos) != 2 {
 		return nil, apperrors.ErrIllegalMove
@@ -173,6 +181,8 @@ func (g *FlipFlop) parsePosition(pos string) (*FFBoardPos, error) {
 	return &FFBoardPos{Row: row, Col: col}, nil
 }
 
+// Returns a map per piece of all all valid moves.
+// Returns a bolean indicating if the player has any moves available.
 func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, bool) {
 	// Represents all valid moves for each piece of the player
 	validMoves := make(map[*FFPiece][]FFBoardPos)

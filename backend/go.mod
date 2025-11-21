@@ -9,7 +9,7 @@ require (
 	github.com/lxzan/gws v1.8.9
 )
 
-require github.com/stretchr/testify v1.10.0 // indirect
+require github.com/stretchr/testify v1.11.1 // indirect
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

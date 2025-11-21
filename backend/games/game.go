@@ -19,19 +19,30 @@ const (
 	COLOR_BLACK
 )
 
+// Represents a basic move with a from and to position.
 type BaseMove struct {
 	From string `json:"from"`
 	To   string `json:"to"`
 }
 
 type Game interface {
+	// Applies a move to the game state. The game implementation should validate the move and return an error if it's illegal.
 	ApplyMove(moveData json.RawMessage) error
+
+	// Returns which player's turn it is.
 	CurrentTurn() PlayerSide
+
+	// Returns a string representation of the game board.
 	GetBoardString() string
+
+	// Returns whether the game has ended.
 	IsGameEnded() bool
+
+	// Returns the winner of the game. If the game is a draw, return -1.
 	GetWinner() PlayerSide
 }
 
+// Factory function to create a new game instance based on the specified game type.
 func NewGame(gameType GameType) (Game, error) {
 	switch gameType {
 	case TYPE_FLIPFLOP3x3:

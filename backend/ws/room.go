@@ -13,6 +13,7 @@ import (
 
 type Status string
 
+// Represents a player in the room.
 type PlayerSlot struct {
 	ID       string           `json:"id"`
 	Username string           `json:"username"`
@@ -22,7 +23,9 @@ type PlayerSlot struct {
 	conn     *gws.Conn        `json:"-"`
 }
 
-type ConnectionInfo struct {
+// Holds the client connection and whether they are a spectator or not.
+type ClientConnection struct {
+	Username    string
 	conn        *gws.Conn
 	isSpectator bool
 }
@@ -42,40 +45,43 @@ type GameRoom struct {
 	GameType games.GameType
 	player1  *PlayerSlot
 	player2  *PlayerSlot
-	conns    map[string]ConnectionInfo
+	conns    map[string]ClientConnection
 	status   Status
 	logger   *slog.Logger
 	mu       sync.RWMutex
 }
 
 const (
-	MaxPlayersPerRoom int = 2
-
-	StatusWaiting Status = "waiting_for_players"
-	StatusOngoing Status = "ongoing"
-	StatusClosed  Status = "closed"
+	StatusWaiting Status = "waiting_for_players" // Initial state, waiting for players to join.
+	StatusOngoing Status = "ongoing"             // Players have joined and the game has started.
+	StatusClosed  Status = "closed"              // Game has ended or room is closed (no active players).
 )
 
+// Create and returns a new GameRoom instance.
 func NewGameRoom(id string, game games.Game, gameMode GameMode, gameType games.GameType, logger *slog.Logger) *GameRoom {
 	return &GameRoom{
 		ID:       id,
 		Game:     game,
 		GameMode: gameMode,
 		GameType: gameType,
-		conns:    make(map[string]ConnectionInfo),
+		conns:    make(map[string]ClientConnection),
 		status:   StatusWaiting,
 		logger:   logger,
 	}
 }
 
+// Broadcasts a game update to all connections in the room, skipping the connection with skipID if provided.
+// A lock is required before calling this method.
 func (gr *GameRoom) broadcastGameUpdate(action MsgType, payload any, skipID *string) {
 	msg := NewMessage(action, payload)
 
+	// Use GWS broadcaster to only encode the message once
 	b := gws.NewBroadcaster(gws.OpcodeText, msg)
 	defer b.Close()
 
 	for id, connData := range gr.conns {
-		if connData.isSpectator || (skipID != nil && id == *skipID) {
+		// Skip only the connections with the clientID that matches the provided skipID
+		if skipID != nil && id == *skipID {
 			continue
 		}
 
@@ -86,6 +92,34 @@ func (gr *GameRoom) broadcastGameUpdate(action MsgType, payload any, skipID *str
 	}
 }
 
+// Broadcasts a chat message to all connections in the room.
+// Requires a Read lock before calling.
+func (gr *GameRoom) broadcastChatMessage(sender ClientConnection, message string) {
+	// Ignore empty messages
+	if message == "" {
+		return
+	}
+
+	msg := NewMessage(MsgTypeChat, types.JSONMap{
+		"username": sender.Username,
+		"message":  message,
+	})
+
+	b := gws.NewBroadcaster(gws.OpcodeText, msg)
+	defer b.Close()
+
+	// Broadcast message to spectators or players
+	for _, clientConn := range gr.conns {
+		if clientConn.isSpectator == sender.isSpectator {
+			if err := b.Broadcast(clientConn.conn); err != nil {
+				gr.logger.Error("Failed to broadcast chat message", "error", err)
+			}
+		}
+	}
+}
+
+// Called when the game ends to update room status and notify connected clients.
+// Requires a Write lock before calling.
 func (gr *GameRoom) endGame(reason string, winner games.PlayerSide) {
 	gr.status = StatusClosed
 	payload := types.JSONMap{"reason": reason}
@@ -95,6 +129,8 @@ func (gr *GameRoom) endGame(reason string, winner games.PlayerSide) {
 	gr.broadcastGameUpdate(MsgTypeGameEnd, payload, nil)
 }
 
+// Constructs and returns the current game state.
+// Requires a Read lock before calling.
 func (gr *GameRoom) gameState() GameState {
 	players := make([]PlayerSlot, 2)
 	if gr.player1 != nil {
@@ -112,6 +148,8 @@ func (gr *GameRoom) gameState() GameState {
 	}
 }
 
+// Retrieves a player from by their ID.
+// Requires a Read lock before calling.
 func (gr *GameRoom) getPlayer(id string) *PlayerSlot {
 	if gr.player1 != nil && gr.player1.ID == id {
 		return gr.player1
@@ -122,14 +160,33 @@ func (gr *GameRoom) getPlayer(id string) *PlayerSlot {
 	return nil
 }
 
+// Checks if both player slots are inactive (either nil or not active).
+// Requires a Read lock before calling.
 func (gr *GameRoom) playersInactive() bool {
 	return (gr.player1 == nil || !gr.player1.IsActive) && (gr.player2 == nil || !gr.player2.IsActive)
 }
 
+// Checks if both player slots are active.
+// Requires a Read lock before calling.
 func (gr *GameRoom) playersActive() bool {
 	return !gr.playersInactive()
 }
 
+// Checks if the room and game status allow an action to proceed. Returns an error if not.
+func (gr *GameRoom) validateActionStatus() error {
+	switch {
+	case gr.Game.IsGameEnded():
+		return apperrors.ErrGameEnded
+	case gr.status == StatusClosed:
+		return apperrors.ErrRoomClosed
+	case gr.status != StatusOngoing:
+		return apperrors.ErrGameNotStarted
+	}
+	return nil
+}
+
+// Called when a client requests to join a room.
+// Returns whether the client is a spectator.
 func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpectator bool, err error) {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
@@ -142,17 +199,18 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 		return false, apperrors.ErrRoomClosed
 	}
 
-	connInfo := ConnectionInfo{
+	clientConnection := ClientConnection{
 		conn:        conn,
 		isSpectator: false,
+		Username:    username,
 	}
+	gr.conns[id] = clientConnection
 
 	player := gr.getPlayer(id)
 	if player != nil {
 		// Reconnecting player
 		player.conn = conn
 		player.IsActive = true
-		gr.conns[id] = connInfo
 		return false, nil
 	}
 
@@ -177,17 +235,17 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 			IsActive: true,
 			conn:     conn,
 		}
-		gr.conns[id] = connInfo
 		return false, nil
 	}
 
 	// Join as spectator
-	connInfo.isSpectator = true
-	gr.conns[id] = connInfo
+	clientConnection.isSpectator = true
 
 	return true, nil
 }
 
+// Called when a client leaves the room.
+// If all players leave, the room then is closed for cleanup.
 func (gr *GameRoom) LeaveRoom(id string) {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
@@ -213,23 +271,34 @@ func (gr *GameRoom) LeaveRoom(id string) {
 	}
 }
 
-func (gr *GameRoom) StartGame() {
+// Starts the game if both player slots are filled and active.
+// Returns a boolean indicating if the game was started.
+func (gr *GameRoom) StartGame() bool {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
 	if gr.status == StatusOngoing || gr.status == StatusClosed {
-		return
+		return false
 	}
 
 	if gr.playersActive() {
 		gr.status = StatusOngoing
 		gr.broadcastGameUpdate(MsgTypeGameStart, gr.gameState(), nil)
+		return true
 	}
+
+	return false
 }
 
+// Handles a move made by a player.
+// Registers and validates the move according to game rules and broadcasts the update.
 func (gr *GameRoom) HandleMove(clientID string, movePayload json.RawMessage) error {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
+
+	if err := gr.validateActionStatus(); err != nil {
+		return err
+	}
 
 	// Verify the player exists and get their color
 	player := gr.getPlayer(clientID)
@@ -265,9 +334,14 @@ func (gr *GameRoom) HandleMove(clientID string, movePayload json.RawMessage) err
 	return nil
 }
 
+// Handles a forfeit request from a player, awarding victory to the opponent, and closing the room.
 func (gr *GameRoom) HandleForfeit(clientID string) error {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
+
+	if err := gr.validateActionStatus(); err != nil {
+		return err
+	}
 
 	player := gr.getPlayer(clientID)
 	if player == nil {
@@ -286,6 +360,26 @@ func (gr *GameRoom) HandleForfeit(clientID string) error {
 	return nil
 }
 
+// Handles a chat message sent by a client and broadcasts it to other clients.
+func (gr *GameRoom) HandleChatMessage(clientID, message string) error {
+	gr.mu.RLock()
+	defer gr.mu.RUnlock()
+
+	if gr.status == StatusClosed {
+		return apperrors.ErrRoomClosed
+	}
+
+	clientConnection, ok := gr.conns[clientID]
+	if !ok {
+		return apperrors.ErrClientNotFound
+	}
+
+	gr.broadcastChatMessage(clientConnection, message)
+
+	return nil
+}
+
+// Get current game state.
 func (gr *GameRoom) GetGameState() GameState {
 	gr.mu.RLock()
 	defer gr.mu.RUnlock()
@@ -293,6 +387,7 @@ func (gr *GameRoom) GetGameState() GameState {
 	return gr.gameState()
 }
 
+// Returns a copy of all connections in the room.
 func (gr *GameRoom) GetPlayerConnections() []*gws.Conn {
 	gr.mu.RLock()
 	defer gr.mu.RUnlock()
@@ -304,6 +399,7 @@ func (gr *GameRoom) GetPlayerConnections() []*gws.Conn {
 	return conns
 }
 
+// Checks if the room is closed.
 func (gr *GameRoom) IsClosed() bool {
 	gr.mu.RLock()
 	defer gr.mu.RUnlock()
