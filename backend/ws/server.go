@@ -70,7 +70,7 @@ func (s *Server) generateRoomID() (string, error) {
 
 	// Iterate until we find a unique ID
 	id := ""
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	for range maxAttempts {
 		var builder strings.Builder
 		for range idLength {
 			builder.WriteByte(charset[rand.Intn(len(charset))])
@@ -140,6 +140,10 @@ func (s *Server) OnOpen(socket *gws.Conn) {
 	if err := socket.SetDeadline(time.Now().Add(PingInterval + PingWait)); err != nil {
 		s.logger.Error("failed to set deadline", "error", err, "client_id", clientID)
 	}
+	socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeConnected, types.JSONMap{
+		"client_id": clientID,
+	}))
+	s.logger.Info("New client connected", "client_id", clientID)
 }
 
 func (s *Server) OnClose(socket *gws.Conn, err error) {
@@ -151,6 +155,12 @@ func (s *Server) OnClose(socket *gws.Conn, err error) {
 		if room.IsClosed() {
 			s.DeleteGameRoom(room)
 		}
+	}
+
+	if err != nil {
+		s.logger.Info("Client disconnected due to unexpected error", "client_id", clientID, "error", err)
+	} else {
+		s.logger.Info("Client disconnected", "client_id", clientID)
 	}
 }
 
@@ -252,7 +262,7 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 		}
 		socket.Session().Store("room", room)
 
-		socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeJoinRoom, types.JSONMap{
+		socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeJoinedRoom, types.JSONMap{
 			"is_spectator": isSpectator,
 		}), func(err error) {
 			if err != nil {
@@ -305,6 +315,15 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 			s.writeError(socket, err)
 		}
 		s.DeleteGameRoom(room)
+	case MsgTypeGameState:
+		_, room, hasRoom := s.getClientContext(socket)
+		if !hasRoom {
+			s.writeError(socket, apperrors.ErrNotInGame)
+			return
+		}
+
+		state := room.GetGameState()
+		socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeGameState, state))
 	case MsgTypeSendMessage:
 		var payload ChatMessage
 		if err := json.Unmarshal(msg.Payload, &payload); err != nil {

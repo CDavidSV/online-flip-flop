@@ -38,7 +38,7 @@ type Game interface {
 	// Returns whether the game has ended.
 	IsGameEnded() bool
 
-	// Returns the winner of the game. If the game is a draw, return -1.
+	// Returns the winner of the game. If the game is a draw or is ongoing, it should return -1.
 	GetWinner() PlayerSide
 }
 

@@ -145,6 +145,7 @@ func (gr *GameRoom) gameState() GameState {
 		CurrentTurn: gr.Game.CurrentTurn(),
 		Players:     players,
 		Status:      gr.status,
+		Winner:      gr.Game.GetWinner(),
 	}
 }
 
@@ -257,6 +258,11 @@ func (gr *GameRoom) LeaveRoom(id string) {
 	}
 
 	delete(gr.conns, id)
+
+	// Notify player left
+	gr.broadcastGameUpdate(MsgPlayerLeftRoom, types.JSONMap{
+		"player_id": id,
+	}, nil)
 
 	// If no players remain, close the room
 	if gr.playersInactive() {
