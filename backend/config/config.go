@@ -13,7 +13,7 @@ var (
 /_/   /_/_/ .___/     /_/   /_/\____/ .___/
          /_/                       /_/      `
 
-	Version = "0.6.1"
+	Version = "0.7.0"
 	Host    = ":8000"
 
 	APILogLevel = log.INFO

@@ -30,13 +30,15 @@ const (
 
 // Incomming message from a websocket connection.
 type IncomingMessage struct {
-	Type    MsgType         `json:"type" validate:"required"` // The type or action of the message
-	Payload json.RawMessage `json:"payload,omitempty"`        // Any additional data required for the type of message.
+	Type      MsgType         `json:"type" validate:"required"`             // The type or action of the message
+	Payload   json.RawMessage `json:"payload,omitempty"`                    // Any additional data required for the type of message.
+	RequestID string          `json:"request_id" validate:"required,uuid4"` // Required for tracking requests/responses.
 }
 
 type OutgoingMessage struct {
-	Type    MsgType `json:"type"`
-	Payload any     `json:"payload,omitempty"`
+	Type      MsgType `json:"type"`
+	Payload   any     `json:"payload,omitempty"`
+	RequestID string  `json:"request_id,omitempty"`
 }
 
 type CreateRoom struct {
@@ -55,10 +57,11 @@ type ChatMessage struct {
 }
 
 // Constructs a new error message in JSON format to be sent through websocket.
-func NewErrorMessage(appErr *apperrors.AppError) []byte {
+func NewErrorMessage(appErr *apperrors.AppError, requestID string) []byte {
 	errMsg := OutgoingMessage{
-		Type:    MsgTypeError,
-		Payload: appErr,
+		Type:      MsgTypeError,
+		Payload:   appErr,
+		RequestID: requestID,
 	}
 
 	errMsgJSON, _ := json.Marshal(errMsg)
@@ -66,10 +69,11 @@ func NewErrorMessage(appErr *apperrors.AppError) []byte {
 }
 
 // Constructs a new message in JSON format to be sent through websocket.
-func NewMessage(action MsgType, payload any) []byte {
+func NewMessage(action MsgType, payload any, requestID string) []byte {
 	msg := OutgoingMessage{
-		Type:    action,
-		Payload: payload,
+		Type:      action,
+		Payload:   payload,
+		RequestID: requestID,
 	}
 
 	msgJSON, _ := json.Marshal(msg)

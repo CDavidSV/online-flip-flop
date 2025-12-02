@@ -73,7 +73,7 @@ func NewGameRoom(id string, game games.Game, gameMode GameMode, gameType games.G
 // Broadcasts a game update to all connections in the room, skipping the connection with skipID if provided.
 // A lock is required before calling this method.
 func (gr *GameRoom) broadcastGameUpdate(action MsgType, payload any, skipID *string) {
-	msg := NewMessage(action, payload)
+	msg := NewMessage(action, payload, "") // RequestID is empty since it's a broadcast
 
 	// Use GWS broadcaster to only encode the message once
 	b := gws.NewBroadcaster(gws.OpcodeText, msg)
@@ -103,7 +103,7 @@ func (gr *GameRoom) broadcastChatMessage(sender ClientConnection, message string
 	msg := NewMessage(MsgTypeChat, types.JSONMap{
 		"username": sender.Username,
 		"message":  message,
-	})
+	}, "")
 
 	b := gws.NewBroadcaster(gws.OpcodeText, msg)
 	defer b.Close()

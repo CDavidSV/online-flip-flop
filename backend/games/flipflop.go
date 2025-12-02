@@ -36,6 +36,7 @@ type FFPlayer struct {
 	color      PlayerSide
 	goal       FFBoardPos
 	pieces     []*FFPiece
+	onCheck    bool
 	validMoves map[*FFPiece][]FFBoardPos
 }
 
@@ -54,6 +55,18 @@ type FlipFlop struct {
 type FlipFlopMove struct {
 	From string
 	To   string
+}
+
+// Retuns a string of the name of the piece.
+func (p *FFPiece) String() string {
+	if p.Side == SIDE_ROOK {
+		return "rook"
+	}
+	return "bishop"
+}
+
+func isPosEqual(pos1, pos2 FFBoardPos) bool {
+	return pos1.Row == pos2.Row && pos1.Col == pos2.Col
 }
 
 // Encodes the current board state into a string representation (similar to a fen string).
@@ -109,14 +122,6 @@ func encodeBoardState(board [][]*FFPiece, currentTurn PlayerSide) string {
 	return fenStr
 }
 
-// Retuns a string of the name of the piece.
-func (p *FFPiece) String() string {
-	if p.Side == SIDE_ROOK {
-		return "rook"
-	}
-	return "bishop"
-}
-
 // Initializes the game board and places the pieces in their starting positions.
 func (g *FlipFlop) createBoard() {
 	rows := int(g.Type)
@@ -129,33 +134,38 @@ func (g *FlipFlop) createBoard() {
 
 	// White pieces are placed in the first row
 	for c := range cols {
-		whitePiece := &FFPiece{
-			Pos:   FFBoardPos{Row: 0, Col: c},
-			Side:  SIDE_ROOK,
-			Color: COLOR_WHITE,
-		}
-
 		blackPiece := &FFPiece{
-			Pos:   FFBoardPos{Row: rows - 1, Col: c},
+			Pos:   FFBoardPos{Row: 0, Col: c},
 			Side:  SIDE_ROOK,
 			Color: COLOR_BLACK,
 		}
 
+		whitePiece := &FFPiece{
+			Pos:   FFBoardPos{Row: rows - 1, Col: c},
+			Side:  SIDE_ROOK,
+			Color: COLOR_WHITE,
+		}
+
 		g.player1.pieces = append(g.player1.pieces, whitePiece)
 		g.player2.pieces = append(g.player2.pieces, blackPiece)
-		g.board[0][c] = whitePiece
-		g.board[rows-1][c] = blackPiece
+		g.board[0][c] = blackPiece
+		g.board[rows-1][c] = whitePiece
 	}
 }
 
 // Checks if the provided position is a goal square.
 func (g *FlipFlop) isGoalSquare(pos FFBoardPos) bool {
 	if g.Type == FlipFlop3x3 {
-		if pos.Col == 1 && (pos.Row == 0 || pos.Row == 2) {
+		whiteGoal := FFBoardPos{Row: 0, Col: 1}
+		blackGoal := FFBoardPos{Row: 2, Col: 1}
+
+		if isPosEqual(pos, whiteGoal) || isPosEqual(pos, blackGoal) {
 			return true
 		}
 	} else {
-		if pos.Col == 2 && (pos.Row == 0 || pos.Row == 4) {
+		whiteGoal := FFBoardPos{Row: 0, Col: 2}
+		blackGoal := FFBoardPos{Row: 4, Col: 2}
+		if isPosEqual(pos, whiteGoal) || isPosEqual(pos, blackGoal) {
 			return true
 		}
 	}
@@ -169,10 +179,9 @@ func (g *FlipFlop) parsePosition(pos string) (*FFBoardPos, error) {
 		return nil, apperrors.ErrIllegalMove
 	}
 
-	col := int(pos[0] - 'A') // A=0, B=1, C=2
-	row := int(pos[1] - '1') // 1=0, 2=1, 3=2
-
-	boardSize := int(g.Type) // 3 or 5
+	boardSize := int(g.Type)               // 3 or 5
+	col := int(pos[0] - 'A')               // A=0, B=1, C=2
+	row := boardSize - 1 - int(pos[1]-'1') // 1=2, 2=1, 3=0
 
 	if col < 0 || col >= boardSize || row < 0 || row >= boardSize {
 		return nil, apperrors.ErrIllegalMove
@@ -189,6 +198,10 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 
 	// Flag to indicate if the player can make any move
 	canMove := false
+	isOnCheck := player.onCheck
+
+	// If the player is on check, they can only move pieces that can get them out of check
+	// In FlipFlop, this means moving a piece that is currently occupying the current player's goal square
 
 	// Iterate over all pieces of the player
 	for _, piece := range player.pieces {
@@ -234,6 +247,11 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 				if occupyingPiece != nil {
 					// If there is a piece in the current position, check if it's a goal square and if it belongs to the opponent
 					if g.isGoalSquare(pos) && occupyingPiece.Color != piece.Color {
+						if isOnCheck && !isPosEqual(pos, player.goal) {
+							// If the player is on check, they can only move pieces that can get them out of check
+							break
+						}
+
 						// Allow the move to the goal square
 						moves = append(moves, FFBoardPos{Row: pos.Row, Col: pos.Col})
 						canMove = true
@@ -244,55 +262,19 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 				}
 
 				// Valid move
-				moves = append(moves, FFBoardPos{Row: pos.Row, Col: pos.Col})
-				canMove = true
+				if !isOnCheck {
+					moves = append(moves, FFBoardPos{Row: pos.Row, Col: pos.Col})
+					canMove = true
+				}
 			}
 		}
 
-		validMoves[piece] = moves
+		if len(moves) > 0 {
+			validMoves[piece] = moves
+		}
 	}
 
 	return validMoves, canMove
-}
-
-func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
-	var player1Goal, player2Goal FFBoardPos
-	if flipFlopType == FlipFlop3x3 {
-		player1Goal = FFBoardPos{Row: 0, Col: 1} // Top middle
-		player2Goal = FFBoardPos{Row: 2, Col: 1} // Bottom middle
-	} else {
-		player1Goal = FFBoardPos{Row: 0, Col: 2} // Top middle
-		player2Goal = FFBoardPos{Row: 4, Col: 2} // Bottom middle
-	}
-
-	game := &FlipFlop{
-		player1: &FFPlayer{
-			goal:       player1Goal,
-			color:      COLOR_WHITE,
-			validMoves: make(map[*FFPiece][]FFBoardPos),
-		},
-		player2: &FFPlayer{
-			goal:       player2Goal,
-			color:      COLOR_BLACK,
-			validMoves: make(map[*FFPiece][]FFBoardPos),
-		},
-		Type:           flipFlopType,
-		currentTurn:    COLOR_WHITE,
-		winner:         -1,
-		positionCounts: make(map[string]int),
-		boardHistory:   make([]string, 0),
-	}
-
-	game.createBoard()
-
-	// Generate initial valid moves for white player
-	validMoves, _ := game.getValidMoves(game.player1)
-	game.player1.validMoves = validMoves
-
-	// Take a snapshot of the initial board state
-	game.boardHistory = append(game.boardHistory, encodeBoardState(game.board, game.currentTurn))
-
-	return game
 }
 
 func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
@@ -346,7 +328,7 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 
 	moveValid := false
 	for _, pos := range validPieceMoves {
-		if pos.Row == newPos.Row && pos.Col == newPos.Col {
+		if isPosEqual(pos, *newPos) {
 			// Valid move found, break out of the loop
 			moveValid = true
 			break
@@ -362,11 +344,20 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 	if occupyingPiece != nil {
 		// Allow the move to the goal square, and capture the piece
 		occupyingPiece.Captured = true
+
+	}
+
+	if isPosEqual(*newPos, opponent.goal) {
+		opponent.onCheck = true
 	}
 
 	// Move the piece
 	g.board[newPos.Row][newPos.Col] = piece
 	g.board[oldPos.Row][oldPos.Col] = nil
+
+	// Because all moves must lead to the current player's goal square not being occupied by an opponent piece,
+	// we can always update the onCheck status of the current player to false.
+	player.onCheck = false
 
 	// Update the piece's position
 	piece.Pos = *newPos
@@ -376,6 +367,13 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 		piece.Side = SIDE_BISHOP
 	} else {
 		piece.Side = SIDE_ROOK
+	}
+
+	// Switch turns
+	if g.currentTurn == COLOR_WHITE {
+		g.currentTurn = COLOR_BLACK
+	} else {
+		g.currentTurn = COLOR_WHITE
 	}
 
 	// Take a snapshot of the new board state
@@ -399,13 +397,6 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 
 		// Draw
 		return nil
-	}
-
-	// Switch turns
-	if g.currentTurn == COLOR_WHITE {
-		g.currentTurn = COLOR_BLACK
-	} else {
-		g.currentTurn = COLOR_WHITE
 	}
 
 	// Get valid moves for the opponent
@@ -436,4 +427,46 @@ func (g *FlipFlop) IsGameEnded() bool {
 
 func (g *FlipFlop) GetWinner() PlayerSide {
 	return g.winner
+}
+
+func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
+	var player1Goal, player2Goal FFBoardPos
+	if flipFlopType == FlipFlop3x3 {
+		player1Goal = FFBoardPos{Row: 2, Col: 1} // Bottom middle
+		player2Goal = FFBoardPos{Row: 0, Col: 1} // Top middle
+	} else {
+		player1Goal = FFBoardPos{Row: 4, Col: 2} // Bottom middle
+		player2Goal = FFBoardPos{Row: 0, Col: 2} // Top middle
+	}
+
+	game := &FlipFlop{
+		player1: &FFPlayer{
+			goal:       player1Goal,
+			color:      COLOR_WHITE,
+			validMoves: make(map[*FFPiece][]FFBoardPos),
+			onCheck:    false,
+		},
+		player2: &FFPlayer{
+			goal:       player2Goal,
+			color:      COLOR_BLACK,
+			validMoves: make(map[*FFPiece][]FFBoardPos),
+			onCheck:    false,
+		},
+		Type:           flipFlopType,
+		currentTurn:    COLOR_WHITE,
+		winner:         -1,
+		positionCounts: make(map[string]int),
+		boardHistory:   make([]string, 0),
+	}
+
+	game.createBoard()
+
+	// Generate initial valid moves for white player
+	validMoves, _ := game.getValidMoves(game.player1)
+	game.player1.validMoves = validMoves
+
+	// Take a snapshot of the initial board state
+	game.boardHistory = append(game.boardHistory, encodeBoardState(game.board, game.currentTurn))
+
+	return game
 }

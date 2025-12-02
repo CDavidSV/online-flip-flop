@@ -45,8 +45,8 @@ func mustLoad[T any](s gws.SessionStorage, key string) (v T) {
 }
 
 // Builds and sends an error message to a websocket connection.
-func (s *Server) writeError(socket *gws.Conn, err error, details ...any) {
-	socket.WriteAsync(gws.OpcodeText, NewErrorMessage(apperrors.New(err, details...)), func(err error) {
+func (s *Server) writeError(socket *gws.Conn, err error, requestID string, details ...any) {
+	socket.WriteAsync(gws.OpcodeText, NewErrorMessage(apperrors.New(err, details...), requestID), func(err error) {
 		if err != nil {
 			s.logger.Error("Failed to send error message", "error", err)
 		}
@@ -142,7 +142,7 @@ func (s *Server) OnOpen(socket *gws.Conn) {
 	}
 	socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeConnected, types.JSONMap{
 		"client_id": clientID,
-	}))
+	}, ""))
 	s.logger.Info("New client connected", "client_id", clientID)
 }
 
@@ -182,13 +182,13 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 
 	var msg IncomingMessage
 	if err := json.Unmarshal(message.Bytes(), &msg); err != nil {
-		s.writeError(socket, apperrors.ErrInvalidMessageFormat)
+		s.writeError(socket, apperrors.ErrInvalidMessageFormat, "")
 		return
 	}
 
 	// Validate incoming message
 	if ok, errors := s.validator.Validate(&msg); !ok {
-		s.writeError(socket, apperrors.ErrValidationFailed, errors)
+		s.writeError(socket, apperrors.ErrValidationFailed, "", errors)
 		return
 	}
 
@@ -196,25 +196,25 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 	case MsgTypeCreateRoom:
 		var payload CreateRoom
 		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-			s.writeError(socket, apperrors.ErrInvalidMessageFormat)
+			s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
 			return
 		}
 
 		// Validate payload
 		if ok, errors := s.validator.Validate(&payload); !ok {
-			s.writeError(socket, apperrors.ErrValidationFailed, errors)
+			s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
 			return
 		}
 
 		clientID, _, hasRoom := s.getClientContext(socket)
 		if hasRoom {
-			s.writeError(socket, apperrors.ErrAlreadyInGame)
+			s.writeError(socket, apperrors.ErrAlreadyInGame, msg.RequestID)
 			return
 		}
 
 		roomID, err := s.generateRoomID()
 		if err != nil {
-			s.writeError(socket, err)
+			s.writeError(socket, err, msg.RequestID)
 			return
 		}
 
@@ -229,42 +229,42 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 		socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeRoomCreated, types.JSONMap{
 			"room_id":      roomID,
 			"is_spectator": isSpectator,
-		}))
+		}, msg.RequestID))
 	case MsgTypeJoinRoom:
 		clientID, _, hasRoom := s.getClientContext(socket)
 		if hasRoom {
-			s.writeError(socket, apperrors.ErrAlreadyInGame)
+			s.writeError(socket, apperrors.ErrAlreadyInGame, msg.RequestID)
 			return
 		}
 
 		var payload JoinRoom
 		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-			s.writeError(socket, apperrors.ErrInvalidMessageFormat)
+			s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
 			return
 		}
 
 		// Validate payload
 		if ok, errors := s.validator.Validate(&payload); !ok {
-			s.writeError(socket, apperrors.ErrValidationFailed, errors)
+			s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
 			return
 		}
 
 		room := s.GetGameRoom(payload.RoomID)
 		if room == nil {
-			s.writeError(socket, apperrors.ErrRoomNotFound)
+			s.writeError(socket, apperrors.ErrRoomNotFound, msg.RequestID)
 			return
 		}
 
 		isSpectator, err := room.EnterRoom(clientID, socket, payload.Username)
 		if err != nil {
-			s.writeError(socket, err)
+			s.writeError(socket, err, msg.RequestID)
 			return
 		}
 		socket.Session().Store("room", room)
 
 		socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeJoinedRoom, types.JSONMap{
 			"is_spectator": isSpectator,
-		}), func(err error) {
+		}, msg.RequestID), func(err error) {
 			if err != nil {
 				s.logger.Error("Failed to send join room confirmation", "error", err)
 			}
@@ -276,7 +276,7 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 	case MsgTypeLeaveRoom:
 		clientID, room, hasRoom := s.getClientContext(socket)
 		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame)
+			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
 			return
 		}
 
@@ -286,19 +286,19 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 			s.DeleteGameRoom(room)
 		}
 
-		err := socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeLeftRoom, nil))
+		err := socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeLeftRoom, nil, msg.RequestID))
 		if err != nil {
 			s.logger.Error("Failed to send left room confirmation", "error", err)
 		}
 	case MsgTypeMove:
 		clientID, room, hasRoom := s.getClientContext(socket)
 		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame)
+			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
 			return
 		}
 
 		if err := room.HandleMove(clientID, msg.Payload); err != nil {
-			s.writeError(socket, err)
+			s.writeError(socket, err, msg.RequestID)
 		}
 
 		if room.IsClosed() {
@@ -307,46 +307,46 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 	case MsgTypeForfeit:
 		clientID, room, hasRoom := s.getClientContext(socket)
 		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame)
+			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
 			return
 		}
 
 		if err := room.HandleForfeit(clientID); err != nil {
-			s.writeError(socket, err)
+			s.writeError(socket, err, msg.RequestID)
 		}
 		s.DeleteGameRoom(room)
 	case MsgTypeGameState:
 		_, room, hasRoom := s.getClientContext(socket)
 		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame)
+			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
 			return
 		}
 
 		state := room.GetGameState()
-		socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeGameState, state))
+		socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeGameState, state, msg.RequestID))
 	case MsgTypeSendMessage:
 		var payload ChatMessage
 		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-			s.writeError(socket, apperrors.ErrInvalidMessageFormat)
+			s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
 			return
 		}
 
 		// Validate payload
 		if ok, errors := s.validator.Validate(&payload); !ok {
-			s.writeError(socket, apperrors.ErrValidationFailed, errors)
+			s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
 			return
 		}
 
 		clientID, room, hasRoom := s.getClientContext(socket)
 		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame)
+			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
 			return
 		}
 
 		if err := room.HandleChatMessage(clientID, payload.Content); err != nil {
-			s.writeError(socket, err)
+			s.writeError(socket, err, msg.RequestID)
 		}
 	default:
-		s.writeError(socket, apperrors.ErrInvalidMsgType)
+		s.writeError(socket, apperrors.ErrInvalidMsgType, msg.RequestID)
 	}
 }
