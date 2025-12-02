@@ -5,13 +5,13 @@ import (
 	"errors"
 )
 
-type GameType int
+type GameType string
 type PlayerSide int
 
 const (
-	TYPE_FLIPFLOP3x3 GameType = iota
-	TYPE_FLIPFLOP5x5
-	TYPE_FLIPFOUR
+	TYPE_FLIPFLOP3x3 GameType = "flipflop3x3"
+	TYPE_FLIPFLOP5x5 GameType = "flipflop5x5"
+	TYPE_FLIPFOUR    GameType = "flipfour"
 )
 
 const (

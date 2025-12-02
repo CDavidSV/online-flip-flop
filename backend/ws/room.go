@@ -298,7 +298,7 @@ func (gr *GameRoom) StartGame() bool {
 
 // Handles a move made by a player.
 // Registers and validates the move according to game rules and broadcasts the update.
-func (gr *GameRoom) HandleMove(clientID string, movePayload json.RawMessage) error {
+func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawMessage) error {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
@@ -320,6 +320,16 @@ func (gr *GameRoom) HandleMove(clientID string, movePayload json.RawMessage) err
 	err := gr.Game.ApplyMove(movePayload)
 	if err != nil {
 		return err
+	}
+
+	if player.conn != nil {
+		// Acknowledge the move to the player
+		ackMsg := NewMessage(MsgTypeMoveAck, nil, requestID)
+		player.conn.WriteAsync(gws.OpcodeText, ackMsg, func(err error) {
+			if err != nil {
+				gr.logger.Error("Failed to send move acknowledgment", "error", err)
+			}
+		})
 	}
 
 	gr.broadcastGameUpdate(MsgTypeMove, types.JSONMap{

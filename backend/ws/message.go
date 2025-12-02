@@ -20,6 +20,7 @@ const (
 	MsgTypeLeftRoom    MsgType = "left"        // Response after leaving a room
 	MsgPlayerLeftRoom  MsgType = "player_left" // Notification that a player has left the room
 	MsgTypeMove        MsgType = "move"        // Make a move in the game
+	MsgTypeMoveAck     MsgType = "move_ack"    // Acknowledgment that a move has been made
 	MsgTypeGameStart   MsgType = "start"       // Notification that the game has started
 	MsgTypeGameEnd     MsgType = "end"         // Notification that the game has ended
 	MsgTypeForfeit     MsgType = "forfeit"     // Forfeit the game
@@ -42,8 +43,8 @@ type OutgoingMessage struct {
 }
 
 type CreateRoom struct {
-	GameType games.GameType `json:"game_type" validate:"required,oneof=0 1"`
-	GameMode GameMode       `json:"game_mode" validate:"required,oneof=0 1"`
+	GameType games.GameType `json:"game_type" validate:"required"`
+	GameMode GameMode       `json:"game_mode" validate:"required"`
 	Username string         `json:"username" validate:"required,min=2,max=20"`
 }
 

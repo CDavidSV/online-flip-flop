@@ -16,11 +16,11 @@ import (
 	"github.com/lxzan/gws"
 )
 
-type GameMode int
+type GameMode string
 
 const (
-	GameModeSingleplayer GameMode = iota
-	GameModeMultiplayer
+	GameModeSingleplayer GameMode = "singleplayer"
+	GameModeMultiplayer  GameMode = "multiplayer"
 )
 
 const (
@@ -131,6 +131,173 @@ func (s *Server) DeleteGameRoom(room *GameRoom) {
 	}
 }
 
+func (s *Server) handleCreateRoom(socket *gws.Conn, msg IncomingMessage) {
+	var payload CreateRoom
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
+		return
+	}
+
+	// Validate payload
+	if ok, errors := s.validator.Validate(&payload); !ok {
+		s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
+		return
+	}
+
+	clientID, _, hasRoom := s.getClientContext(socket)
+	if hasRoom {
+		s.writeError(socket, apperrors.ErrAlreadyInGame, msg.RequestID)
+		return
+	}
+
+	roomID, err := s.generateRoomID()
+	if err != nil {
+		s.writeError(socket, err, msg.RequestID)
+		return
+	}
+
+	game, _ := games.NewGame(payload.GameType)
+	room := NewGameRoom(roomID, game, payload.GameMode, payload.GameType, s.logger)
+
+	isSpectator, _ := room.EnterRoom(clientID, socket, payload.Username)
+	socket.Session().Store("room", room)
+
+	s.rooms.Store(roomID, room)
+
+	socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeRoomCreated, types.JSONMap{
+		"room_id":      roomID,
+		"is_spectator": isSpectator,
+	}, msg.RequestID))
+}
+
+func (s *Server) handleJoinRoom(socket *gws.Conn, msg IncomingMessage) {
+	clientID, _, hasRoom := s.getClientContext(socket)
+	if hasRoom {
+		s.writeError(socket, apperrors.ErrAlreadyInGame, msg.RequestID)
+		return
+	}
+
+	var payload JoinRoom
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
+		return
+	}
+
+	// Validate payload
+	if ok, errors := s.validator.Validate(&payload); !ok {
+		s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
+		return
+	}
+
+	room := s.GetGameRoom(payload.RoomID)
+	if room == nil {
+		s.writeError(socket, apperrors.ErrRoomNotFound, msg.RequestID)
+		return
+	}
+
+	isSpectator, err := room.EnterRoom(clientID, socket, payload.Username)
+	if err != nil {
+		s.writeError(socket, err, msg.RequestID)
+		return
+	}
+	socket.Session().Store("room", room)
+
+	socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeJoinedRoom, types.JSONMap{
+		"is_spectator": isSpectator,
+	}, msg.RequestID), func(err error) {
+		if err != nil {
+			s.logger.Error("Failed to send join room confirmation", "error", err)
+		}
+	})
+
+	if !isSpectator {
+		room.StartGame()
+	}
+}
+
+func (s *Server) handleLeaveRoom(socket *gws.Conn, msg IncomingMessage) {
+	clientID, room, hasRoom := s.getClientContext(socket)
+	if !hasRoom {
+		s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
+		return
+	}
+
+	socket.Session().Delete("room")
+	room.LeaveRoom(clientID)
+	if room.IsClosed() {
+		s.DeleteGameRoom(room)
+	}
+
+	err := socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeLeftRoom, nil, msg.RequestID))
+	if err != nil {
+		s.logger.Error("Failed to send left room confirmation", "error", err)
+	}
+}
+
+func (s *Server) handleMove(socket *gws.Conn, msg IncomingMessage) {
+	clientID, room, hasRoom := s.getClientContext(socket)
+	if !hasRoom {
+		s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
+		return
+	}
+
+	if err := room.HandleMove(clientID, msg.RequestID, msg.Payload); err != nil {
+		s.writeError(socket, err, msg.RequestID)
+	}
+
+	if room.IsClosed() {
+		s.DeleteGameRoom(room)
+	}
+}
+
+func (s *Server) handleForfeit(socket *gws.Conn, msg IncomingMessage) {
+	clientID, room, hasRoom := s.getClientContext(socket)
+	if !hasRoom {
+		s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
+		return
+	}
+
+	if err := room.HandleForfeit(clientID); err != nil {
+		s.writeError(socket, err, msg.RequestID)
+	}
+	s.DeleteGameRoom(room)
+}
+
+func (s *Server) handleGameState(socket *gws.Conn, msg IncomingMessage) {
+	_, room, hasRoom := s.getClientContext(socket)
+	if !hasRoom {
+		s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
+		return
+	}
+
+	state := room.GetGameState()
+	socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeGameState, state, msg.RequestID))
+}
+
+func (s *Server) handleSendMessage(socket *gws.Conn, msg IncomingMessage) {
+	var payload ChatMessage
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
+		return
+	}
+
+	// Validate payload
+	if ok, errors := s.validator.Validate(&payload); !ok {
+		s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
+		return
+	}
+
+	clientID, room, hasRoom := s.getClientContext(socket)
+	if !hasRoom {
+		s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
+		return
+	}
+
+	if err := room.HandleChatMessage(clientID, payload.Content); err != nil {
+		s.writeError(socket, err, msg.RequestID)
+	}
+}
+
 // ------------------ WebSocket event handlers ------------------
 func (s *Server) OnOpen(socket *gws.Conn) {
 	clientID := uuid.New().String()
@@ -194,158 +361,19 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 
 	switch msg.Type {
 	case MsgTypeCreateRoom:
-		var payload CreateRoom
-		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-			s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
-			return
-		}
-
-		// Validate payload
-		if ok, errors := s.validator.Validate(&payload); !ok {
-			s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
-			return
-		}
-
-		clientID, _, hasRoom := s.getClientContext(socket)
-		if hasRoom {
-			s.writeError(socket, apperrors.ErrAlreadyInGame, msg.RequestID)
-			return
-		}
-
-		roomID, err := s.generateRoomID()
-		if err != nil {
-			s.writeError(socket, err, msg.RequestID)
-			return
-		}
-
-		game, _ := games.NewGame(payload.GameType)
-		room := NewGameRoom(roomID, game, payload.GameMode, payload.GameType, s.logger)
-
-		isSpectator, _ := room.EnterRoom(clientID, socket, payload.Username)
-		socket.Session().Store("room", room)
-
-		s.rooms.Store(roomID, room)
-
-		socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeRoomCreated, types.JSONMap{
-			"room_id":      roomID,
-			"is_spectator": isSpectator,
-		}, msg.RequestID))
+		s.handleCreateRoom(socket, msg)
 	case MsgTypeJoinRoom:
-		clientID, _, hasRoom := s.getClientContext(socket)
-		if hasRoom {
-			s.writeError(socket, apperrors.ErrAlreadyInGame, msg.RequestID)
-			return
-		}
-
-		var payload JoinRoom
-		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-			s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
-			return
-		}
-
-		// Validate payload
-		if ok, errors := s.validator.Validate(&payload); !ok {
-			s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
-			return
-		}
-
-		room := s.GetGameRoom(payload.RoomID)
-		if room == nil {
-			s.writeError(socket, apperrors.ErrRoomNotFound, msg.RequestID)
-			return
-		}
-
-		isSpectator, err := room.EnterRoom(clientID, socket, payload.Username)
-		if err != nil {
-			s.writeError(socket, err, msg.RequestID)
-			return
-		}
-		socket.Session().Store("room", room)
-
-		socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeJoinedRoom, types.JSONMap{
-			"is_spectator": isSpectator,
-		}, msg.RequestID), func(err error) {
-			if err != nil {
-				s.logger.Error("Failed to send join room confirmation", "error", err)
-			}
-		})
-
-		if !isSpectator {
-			room.StartGame()
-		}
+		s.handleJoinRoom(socket, msg)
 	case MsgTypeLeaveRoom:
-		clientID, room, hasRoom := s.getClientContext(socket)
-		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
-			return
-		}
-
-		socket.Session().Delete("room")
-		room.LeaveRoom(clientID)
-		if room.IsClosed() {
-			s.DeleteGameRoom(room)
-		}
-
-		err := socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeLeftRoom, nil, msg.RequestID))
-		if err != nil {
-			s.logger.Error("Failed to send left room confirmation", "error", err)
-		}
+		s.handleLeaveRoom(socket, msg)
 	case MsgTypeMove:
-		clientID, room, hasRoom := s.getClientContext(socket)
-		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
-			return
-		}
-
-		if err := room.HandleMove(clientID, msg.Payload); err != nil {
-			s.writeError(socket, err, msg.RequestID)
-		}
-
-		if room.IsClosed() {
-			s.DeleteGameRoom(room)
-		}
+		s.handleMove(socket, msg)
 	case MsgTypeForfeit:
-		clientID, room, hasRoom := s.getClientContext(socket)
-		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
-			return
-		}
-
-		if err := room.HandleForfeit(clientID); err != nil {
-			s.writeError(socket, err, msg.RequestID)
-		}
-		s.DeleteGameRoom(room)
+		s.handleForfeit(socket, msg)
 	case MsgTypeGameState:
-		_, room, hasRoom := s.getClientContext(socket)
-		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
-			return
-		}
-
-		state := room.GetGameState()
-		socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeGameState, state, msg.RequestID))
+		s.handleGameState(socket, msg)
 	case MsgTypeSendMessage:
-		var payload ChatMessage
-		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-			s.writeError(socket, apperrors.ErrInvalidMessageFormat, msg.RequestID)
-			return
-		}
-
-		// Validate payload
-		if ok, errors := s.validator.Validate(&payload); !ok {
-			s.writeError(socket, apperrors.ErrValidationFailed, msg.RequestID, errors)
-			return
-		}
-
-		clientID, room, hasRoom := s.getClientContext(socket)
-		if !hasRoom {
-			s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
-			return
-		}
-
-		if err := room.HandleChatMessage(clientID, payload.Content); err != nil {
-			s.writeError(socket, err, msg.RequestID)
-		}
+		s.handleSendMessage(socket, msg)
 	default:
 		s.writeError(socket, apperrors.ErrInvalidMsgType, msg.RequestID)
 	}
