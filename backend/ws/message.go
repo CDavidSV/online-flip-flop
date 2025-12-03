@@ -10,23 +10,24 @@ import (
 type MsgType string
 
 const (
-	MsgTypeConnected   MsgType = "connected"   // Sent when a client successfully connects
-	MsgTypeCreateRoom  MsgType = "create"      // Create a new game room
-	MsgTypeRoomCreated MsgType = "created"     // Response after creating a room
-	MsgTypeJoinRoom    MsgType = "join"        // Join an existing game room
-	MsgTypeGameState   MsgType = "game_state"  // Current state of the game
-	MsgTypeJoinedRoom  MsgType = "joined"      // Response after joining a room
-	MsgTypeLeaveRoom   MsgType = "leave"       // Leave the current game room
-	MsgTypeLeftRoom    MsgType = "left"        // Response after leaving a room
-	MsgPlayerLeftRoom  MsgType = "player_left" // Notification that a player has left the room
-	MsgTypeMove        MsgType = "move"        // Make a move in the game
-	MsgTypeAck         MsgType = "ack"         // Acknowledgment of a received message
-	MsgTypeGameStart   MsgType = "start"       // Notification that the game has started
-	MsgTypeGameEnd     MsgType = "end"         // Notification that the game has ended
-	MsgTypeForfeit     MsgType = "forfeit"     // Forfeit the game
-	MsgTypeSendMessage MsgType = "message"     // Send a message
-	MsgTypeChat        MsgType = "chat"        // New chat message
-	MsgTypeError       MsgType = "error"       // Error message
+	MsgTypeConnected   MsgType = "connected"       // Sent when a client successfully connects
+	MsgTypeCreateRoom  MsgType = "create"          // Create a new game room
+	MsgTypeRoomCreated MsgType = "created"         // Response after creating a room
+	MsgTypeJoinRoom    MsgType = "join"            // Join an existing game room
+	MsgTypeGameState   MsgType = "game_state"      // Current state of the game
+	MsgTypeJoinedRoom  MsgType = "joined"          // Response after joining a room
+	MsgTypeLeaveRoom   MsgType = "leave"           // Leave the current game room
+	MsgTypeLeftRoom    MsgType = "left"            // Response after leaving a room
+	MsgPlayerLeftRoom  MsgType = "player_left"     // Notification that a player has left the room
+	MsgPlayerRejoined  MsgType = "player_rejoined" // Notification that a player has rejoined the room
+	MsgTypeMove        MsgType = "move"            // Make a move in the game
+	MsgTypeAck         MsgType = "ack"             // Acknowledgment of a received message
+	MsgTypeGameStart   MsgType = "start"           // Notification that the game has started
+	MsgTypeGameEnd     MsgType = "end"             // Notification that the game has ended
+	MsgTypeForfeit     MsgType = "forfeit"         // Forfeit the game
+	MsgTypeSendMessage MsgType = "message"         // Send a message
+	MsgTypeChat        MsgType = "chat"            // New chat message
+	MsgTypeError       MsgType = "error"           // Error message
 )
 
 // Incomming message from a websocket connection.

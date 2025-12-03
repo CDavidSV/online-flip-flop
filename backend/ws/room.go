@@ -194,6 +194,12 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 	if player != nil {
 		// Reconnecting player
 		player.IsActive = true
+
+		// Notify player rejoined
+		gr.broadcastGameUpdate(MsgPlayerRejoined, types.JSONMap{
+			"player_id": id,
+		}, &id)
+
 		return false, nil
 	}
 
