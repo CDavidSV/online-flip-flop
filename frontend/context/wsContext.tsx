@@ -1,10 +1,7 @@
 "use client";
 
-import { WSError, WSMessage } from "@/types/types";
+import { WSError, WSEventType, WSMessage } from "@/types/types";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-
-// Define valid event types
-type WSEventType = "player_left" | "start" | "move" | "chat" | "end";
 
 type WebsocketContextType = {
     isConnected: boolean;

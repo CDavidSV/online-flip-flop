@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import {
+    createContext,
+    ReactNode,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
 import { useWebSocket } from "./wsContext";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -11,6 +17,8 @@ import {
     CreateGameResponse,
     JoinGameRequest,
     JoinGameResponse,
+    GameStatus,
+    Player,
 } from "@/types/types";
 
 interface GameRoomContext {
@@ -18,8 +26,11 @@ interface GameRoomContext {
     username: string | null;
     inRoom: boolean;
     isSpectator: boolean;
+    gameState: GameStatus;
     gameType: GameType | null;
     gameMode: GameMode | null;
+    currentPlayer: Player | null;
+    opponentPlayer: Player | null;
     createGameRoom: (
         username: string,
         gameType: GameType,
@@ -33,8 +44,11 @@ const gameRoomContext = createContext<GameRoomContext>({
     username: null,
     inRoom: false,
     isSpectator: false,
+    gameState: "waiting_for_players",
     gameType: null,
     gameMode: null,
+    currentPlayer: null,
+    opponentPlayer: null,
     createGameRoom: async () => {
         return "";
     },
@@ -52,7 +66,7 @@ export const useGameRoom = () => {
 };
 
 export function GameRoomProvider({ children }: { children: ReactNode }) {
-    const { isConnected, sendRequest } = useWebSocket();
+    const { isConnected, sendRequest, on, clientId } = useWebSocket();
     const router = useRouter();
 
     const [roomId, setRoomId] = useState<string | null>(null);
@@ -61,6 +75,11 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
     const [inRoom, setInRoom] = useState(false);
     const [gameType, setGameType] = useState<GameType | null>(null);
     const [gameMode, setGameMode] = useState<GameMode | null>(null);
+    const [gameState, setGameState] = useState<GameStatus>(
+        "waiting_for_players"
+    );
+    const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
+    const [opponentPlayer, setOpponentPlayer] = useState<Player | null>(null);
 
     useEffect(() => {
         if (isConnected) {
@@ -80,6 +99,61 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         }
     }, [isConnected, roomId, username]);
 
+    useEffect(() => {
+        const cleanupPlayerLeft = on("player_left", () => {
+            setGameState("waiting_for_players");
+            setOpponentPlayer(null);
+        });
+
+        const cleanupStart = on("start", (payload: any) => {
+            setGameState("ongoing");
+
+            if (payload && payload.players) {
+                // Find current player and opponent from the payload
+                const current = payload.players.find(
+                    (p: any) => p.id === clientId
+                );
+                const opponent = payload.players.find(
+                    (p: any) => p.id !== clientId
+                );
+
+                if (current) {
+                    setCurrentPlayer({
+                        cliendId: current.id,
+                        username: current.username,
+                        color: current.color,
+                        isAi: current.is_ai,
+                    });
+                }
+
+                if (opponent) {
+                    setOpponentPlayer({
+                        cliendId: opponent.id,
+                        username: opponent.username,
+                        color: opponent.color,
+                        isAi: opponent.is_ai,
+                    });
+                }
+            }
+        });
+
+        const cleanupEnd = on("end", () => {
+            setGameState("closed");
+        });
+
+        const cleanupRejoin = on("player_rejoined", () => {
+            setGameState("ongoing");
+        });
+
+        // Cleanup event listeners
+        return () => {
+            cleanupPlayerLeft();
+            cleanupStart();
+            cleanupEnd();
+            cleanupRejoin();
+        };
+    }, [on]);
+
     // Resets the room state
     const resetState = () => {
         setRoomId(null);
@@ -88,7 +162,10 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         setIsSpectator(false);
         setGameType(null);
         setGameMode(null);
-    }
+        setGameState("waiting_for_players");
+        setCurrentPlayer(null);
+        setOpponentPlayer(null);
+    };
 
     /**
      * Creates a new game room.
@@ -126,6 +203,12 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
             setUsername(username);
             setGameType(gameType);
             setGameMode(gameMode);
+            setCurrentPlayer({
+                cliendId: response.payload.clientId,
+                username,
+                color: null,
+                isAi: false,
+            });
 
             return payload.room_id;
         } catch (error) {
@@ -161,6 +244,12 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
             setIsSpectator(payload.is_spectator);
             setGameType(payload.game_type);
             setGameMode(payload.game_mode);
+            setCurrentPlayer({
+                cliendId: response.payload.clientId,
+                username,
+                color: null,
+                isAi: false,
+            });
 
             return payload;
         } catch (error) {
@@ -178,6 +267,9 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                 isSpectator,
                 gameType,
                 gameMode,
+                gameState,
+                currentPlayer,
+                opponentPlayer,
                 createGameRoom,
                 joinRoom,
             }}

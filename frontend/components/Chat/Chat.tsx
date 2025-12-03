@@ -38,8 +38,7 @@ export function Chat() {
         setMessageInput("");
 
         sendRequest("message", { content: messageCotent })
-            .then((response) => {
-                console.log("Message sent successfully:", response);
+            .then(() => {
                 setChatMessages((prevMessages) => [
                     ...prevMessages,
                     {
@@ -115,7 +114,7 @@ export function Chat() {
                                             ? "You"
                                             : msg.username}
                                     </strong>
-                                    {msg.message}
+                                    <p className="wrap-anywhere">{msg.message}</p>
                                 </div>
                             </div>
                         ))}

@@ -33,6 +33,12 @@ enum ErrorCode {
     ID_GENERATION_FAILED = "id_generation_failed",
 }
 
+// Incoming WebSocket message events
+type WSEventType = "player_left" | "start" | "move" | "chat" | "end" | "player_rejoined";
+
+// Game state types
+type GameStatus = "waiting_for_players" | "ongoing" | "closed";
+
 interface CreateGameRequest {
     username: string;
     game_type: GameType;
@@ -44,7 +50,6 @@ interface WSMessage {
     payload: any;
     request_id?: string;
 }
-
 
 interface WSError {
     code: ErrorCode | string;
@@ -83,6 +88,13 @@ interface MessageEvent {
     message: string;
 }
 
+interface Player {
+    cliendId: string;
+    username: string;
+    color: PlayerColor | null;
+    isAi: boolean;
+}
+
 export { GameType, GameMode, PlayerColor, ErrorCode };
 export type {
     CreateGameResponse,
@@ -93,4 +105,7 @@ export type {
     MessageSendRequest,
     WSMessage,
     WSError,
+    WSEventType,
+    Player,
+    GameStatus
 };

@@ -58,9 +58,18 @@ const usernameFormSchema = z.object({
 
 export default function GamePage() {
     const { game_id } = useParams<{ game_id: string }>();
-    const { username, inRoom, gameType, gameMode, joinRoom } = useGameRoom();
     const { isConnected } = useWebSocket();
     const router = useRouter();
+    const {
+        username,
+        inRoom,
+        gameType,
+        gameMode,
+        gameState,
+        joinRoom,
+        currentPlayer,
+        opponentPlayer,
+    } = useGameRoom();
 
     const [moves, setMoves] = useState(initialMoves);
     const [copied, setCopied] = useState(false);
@@ -262,7 +271,7 @@ export default function GamePage() {
                         {/* Main Game Area */}
                         <div className='md:flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 flex-col items-center justify-between overflow-hidden'>
                             <div className='flex items-center text-lg font-semibold text-red-500 dark:text-red-400 mb-4'>
-                                Waiting for opponent to join...
+                                {opponentPlayer?.username || "Waiting for opponent player to join..."}
                             </div>
 
                             <div className='flex items-center justify-center w-full max-w-[80vh] and max-h-[80vh] aspect-square bg-gray-200 dark:bg-gray-700 rounded-xl shadow-inner border-4 border-gray-300 dark:border-gray-600 '>
@@ -273,7 +282,7 @@ export default function GamePage() {
                             </div>
 
                             <div className='flex items-center text-lg font-semibold text-blue-600 dark:text-blue-400 mt-4'>
-                                {username || "PLAYER 1 (YOU)"}
+                                {currentPlayer?.username || "PLAYER 1 (YOU)"}
                             </div>
                         </div>
 
@@ -283,7 +292,11 @@ export default function GamePage() {
                                     <CardTitle className='flex items-center justify-between'>
                                         Game Room
                                         <Badge variant='secondary'>
-                                            Waiting For Players
+                                            {gameState === "waiting_for_players"
+                                                ? "Waiting For Players"
+                                                : gameState === "ongoing"
+                                                ? "Game In Progress"
+                                                : "Game Ended"}
                                         </Badge>
                                     </CardTitle>
                                     <CardDescription className='text-sm'>
