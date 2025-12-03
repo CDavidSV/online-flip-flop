@@ -45,7 +45,7 @@ type GameRoom struct {
 	GameType games.GameType
 	player1  *PlayerSlot
 	player2  *PlayerSlot
-	conns    map[string]ClientConnection
+	conns    map[string]*ClientConnection
 	status   Status
 	logger   *slog.Logger
 	mu       sync.RWMutex
@@ -64,7 +64,7 @@ func NewGameRoom(id string, game games.Game, gameMode GameMode, gameType games.G
 		Game:     game,
 		GameMode: gameMode,
 		GameType: gameType,
-		conns:    make(map[string]ClientConnection),
+		conns:    make(map[string]*ClientConnection),
 		status:   StatusWaiting,
 		logger:   logger,
 	}
@@ -182,7 +182,7 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 		return false, apperrors.ErrRoomClosed
 	}
 
-	clientConnection := ClientConnection{
+	clientConnection := &ClientConnection{
 		ID:          id,
 		conn:        conn,
 		isSpectator: false,
