@@ -20,7 +20,7 @@ const (
 	MsgTypeLeftRoom    MsgType = "left"        // Response after leaving a room
 	MsgPlayerLeftRoom  MsgType = "player_left" // Notification that a player has left the room
 	MsgTypeMove        MsgType = "move"        // Make a move in the game
-	MsgTypeMoveAck     MsgType = "move_ack"    // Acknowledgment that a move has been made
+	MsgTypeAck         MsgType = "ack"         // Acknowledgment of a received message
 	MsgTypeGameStart   MsgType = "start"       // Notification that the game has started
 	MsgTypeGameEnd     MsgType = "end"         // Notification that the game has ended
 	MsgTypeForfeit     MsgType = "forfeit"     // Forfeit the game

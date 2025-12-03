@@ -204,6 +204,8 @@ func (s *Server) handleJoinRoom(socket *gws.Conn, msg IncomingMessage) {
 
 	socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeJoinedRoom, types.JSONMap{
 		"is_spectator": isSpectator,
+		"game_mode":    room.GameMode,
+		"game_type":    room.GameType,
 	}, msg.RequestID), func(err error) {
 		if err != nil {
 			s.logger.Error("Failed to send join room confirmation", "error", err)
@@ -241,7 +243,7 @@ func (s *Server) handleMove(socket *gws.Conn, msg IncomingMessage) {
 		return
 	}
 
-	if err := room.HandleMove(clientID, msg.RequestID, msg.Payload); err != nil {
+	if _, err := room.HandleMove(clientID, msg.RequestID, msg.Payload); err != nil {
 		s.writeError(socket, err, msg.RequestID)
 	}
 
@@ -293,7 +295,7 @@ func (s *Server) handleSendMessage(socket *gws.Conn, msg IncomingMessage) {
 		return
 	}
 
-	if err := room.HandleChatMessage(clientID, payload.Content); err != nil {
+	if err := room.HandleChatMessage(clientID, msg.RequestID, payload.Content); err != nil {
 		s.writeError(socket, err, msg.RequestID)
 	}
 }

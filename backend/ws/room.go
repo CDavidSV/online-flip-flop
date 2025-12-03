@@ -20,11 +20,11 @@ type PlayerSlot struct {
 	Color    games.PlayerSide `json:"color"`
 	IsAI     bool             `json:"is_ai"`
 	IsActive bool             `json:"is_active"`
-	conn     *gws.Conn        `json:"-"`
 }
 
 // Holds the client connection and whether they are a spectator or not.
 type ClientConnection struct {
+	ID          string
 	Username    string
 	conn        *gws.Conn
 	isSpectator bool
@@ -92,32 +92,6 @@ func (gr *GameRoom) broadcastGameUpdate(action MsgType, payload any, skipID *str
 	}
 }
 
-// Broadcasts a chat message to all connections in the room.
-// Requires a Read lock before calling.
-func (gr *GameRoom) broadcastChatMessage(sender ClientConnection, message string) {
-	// Ignore empty messages
-	if message == "" {
-		return
-	}
-
-	msg := NewMessage(MsgTypeChat, types.JSONMap{
-		"username": sender.Username,
-		"message":  message,
-	}, "")
-
-	b := gws.NewBroadcaster(gws.OpcodeText, msg)
-	defer b.Close()
-
-	// Broadcast message to spectators or players
-	for _, clientConn := range gr.conns {
-		if clientConn.isSpectator == sender.isSpectator {
-			if err := b.Broadcast(clientConn.conn); err != nil {
-				gr.logger.Error("Failed to broadcast chat message", "error", err)
-			}
-		}
-	}
-}
-
 // Called when the game ends to update room status and notify connected clients.
 // Requires a Write lock before calling.
 func (gr *GameRoom) endGame(reason string, winner games.PlayerSide) {
@@ -127,6 +101,14 @@ func (gr *GameRoom) endGame(reason string, winner games.PlayerSide) {
 		payload["winner"] = winner
 	}
 	gr.broadcastGameUpdate(MsgTypeGameEnd, payload, nil)
+}
+
+// Called when the game ends to update room status and notify connected clients.
+// This is the public version that can be called from the server.
+func (gr *GameRoom) EndGame(reason string, winner games.PlayerSide) {
+	gr.mu.Lock()
+	defer gr.mu.Unlock()
+	gr.endGame(reason, winner)
 }
 
 // Constructs and returns the current game state.
@@ -201,6 +183,7 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 	}
 
 	clientConnection := ClientConnection{
+		ID:          id,
 		conn:        conn,
 		isSpectator: false,
 		Username:    username,
@@ -210,7 +193,6 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 	player := gr.getPlayer(id)
 	if player != nil {
 		// Reconnecting player
-		player.conn = conn
 		player.IsActive = true
 		return false, nil
 	}
@@ -234,7 +216,6 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 			Color:    color,
 			IsAI:     false,
 			IsActive: true,
-			conn:     conn,
 		}
 		return false, nil
 	}
@@ -254,7 +235,6 @@ func (gr *GameRoom) LeaveRoom(id string) {
 	player := gr.getPlayer(id)
 	if player != nil {
 		player.IsActive = false
-		player.conn = nil
 	}
 
 	delete(gr.conns, id)
@@ -298,34 +278,35 @@ func (gr *GameRoom) StartGame() bool {
 
 // Handles a move made by a player.
 // Registers and validates the move according to game rules and broadcasts the update.
-func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawMessage) error {
+// Returns the player's color to allow server-side processing.
+func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawMessage) (games.PlayerSide, error) {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
 	if err := gr.validateActionStatus(); err != nil {
-		return err
+		return -1, err
 	}
 
 	// Verify the player exists and get their color
 	player := gr.getPlayer(clientID)
 	if player == nil {
-		return apperrors.ErrClientNotFound
+		return -1, apperrors.ErrClientNotFound
 	}
 
 	// Check if it's the player's turn
 	if player.Color != gr.Game.CurrentTurn() {
-		return apperrors.ErrNotYourTurn
+		return -1, apperrors.ErrNotYourTurn
 	}
 
 	err := gr.Game.ApplyMove(movePayload)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
-	if player.conn != nil {
-		// Acknowledge the move to the player
-		ackMsg := NewMessage(MsgTypeMoveAck, nil, requestID)
-		player.conn.WriteAsync(gws.OpcodeText, ackMsg, func(err error) {
+	if clientConn, ok := gr.conns[clientID]; ok {
+		// Acknowledge the move to the player immediately
+		ackMsg := NewMessage(MsgTypeAck, nil, requestID)
+		clientConn.conn.WriteAsync(gws.OpcodeText, ackMsg, func(err error) {
 			if err != nil {
 				gr.logger.Error("Failed to send move acknowledgment", "error", err)
 			}
@@ -347,7 +328,7 @@ func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawM
 		}
 	}
 
-	return nil
+	return player.Color, nil
 }
 
 // Handles a forfeit request from a player, awarding victory to the opponent, and closing the room.
@@ -377,7 +358,7 @@ func (gr *GameRoom) HandleForfeit(clientID string) error {
 }
 
 // Handles a chat message sent by a client and broadcasts it to other clients.
-func (gr *GameRoom) HandleChatMessage(clientID, message string) error {
+func (gr *GameRoom) HandleChatMessage(clientID, requestID, message string) error {
 	gr.mu.RLock()
 	defer gr.mu.RUnlock()
 
@@ -385,12 +366,44 @@ func (gr *GameRoom) HandleChatMessage(clientID, message string) error {
 		return apperrors.ErrRoomClosed
 	}
 
-	clientConnection, ok := gr.conns[clientID]
+	sender, ok := gr.conns[clientID]
 	if !ok {
 		return apperrors.ErrClientNotFound
 	}
 
-	gr.broadcastChatMessage(clientConnection, message)
+	// Ignore empty messages
+	if message == "" {
+		return nil
+	}
+
+	msg := NewMessage(MsgTypeChat, types.JSONMap{
+		"client_id": clientID,
+		"username":  sender.Username,
+		"message":   message,
+	}, "")
+
+	ackMsg := NewMessage(MsgTypeAck, nil, requestID)
+	sender.conn.WriteAsync(gws.OpcodeText, ackMsg, func(err error) {
+		if err != nil {
+			gr.logger.Error("Failed to send move acknowledgment", "error", err)
+		}
+	})
+
+	b := gws.NewBroadcaster(gws.OpcodeText, msg)
+	defer b.Close()
+
+	// Broadcast message to spectators or players
+	for _, clientConn := range gr.conns {
+		if clientConn.ID == clientID {
+			continue
+		}
+
+		if clientConn.isSpectator == sender.isSpectator {
+			if err := b.Broadcast(clientConn.conn); err != nil {
+				gr.logger.Error("Failed to broadcast chat message", "error", err)
+			}
+		}
+	}
 
 	return nil
 }
