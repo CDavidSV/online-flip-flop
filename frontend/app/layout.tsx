@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { GameProvider } from "@/context/roomContext";
+import { GameRoomProvider } from "@/context/roomContext";
 import { WebsocketProvider } from "@/context/wsContext";
-import "./globals.css";
 import { Toaster } from "sonner";
+import { ThemeProvider } from "@/components/theme-provider";
+import "./globals.css";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -31,10 +32,17 @@ export default function RootLayout({
             <body
                 className={`${geistSans.variable} ${geistMono.variable} antialiased`}
             >
-                <GameProvider>
-                    <WebsocketProvider>{children}</WebsocketProvider>
-                </GameProvider>
-                <Toaster position="top-right" />
+                <ThemeProvider
+                    attribute='class'
+                    defaultTheme='dark'
+                    enableSystem
+                    disableTransitionOnChange
+                >
+                    <WebsocketProvider>
+                        <GameRoomProvider>{children}</GameRoomProvider>
+                    </WebsocketProvider>
+                    <Toaster position='top-right' />
+                </ThemeProvider>
             </body>
         </html>
     );

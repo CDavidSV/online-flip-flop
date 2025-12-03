@@ -7,15 +7,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PInput } from "@/components/ui/p-input";
 import { z } from "zod";
-import { GameType, GameMode } from "@/types/types";
 import RulesDialog from "@/app/rulesDialog";
-import { useGameRoom } from "@/context/roomContext";
-import api from "@/util/api";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
+import { useWebSocket } from "@/context/wsContext";
+import {
+    GameType,
+    GameMode,
+    ErrorCode,
+} from "@/types/types";
+import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
+import FlipFlopLoader from "@/components/FlipFlopLoader/FlipFlopLoader";
 import {
     Carousel,
     CarouselContent,
@@ -37,10 +41,10 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
+import { useGameRoom } from "@/context/roomContext";
 
 const createGameFormSchema = z.object({
     username: z.string().min(3, "Player name is required"),
-    password: z.string().optional(),
 });
 
 const joinGameFormSchema = z.object({
@@ -48,23 +52,20 @@ const joinGameFormSchema = z.object({
     roomId: z.string().length(4, "Room ID must be 4 characters"),
 });
 
-const passwordFormSchema = z.object({
-    password: z.string().min(1, "Password is required"),
-});
-
 export default function Home() {
     const router = useRouter();
-    const { setRoomId, setUsername, setPassword } = useGameRoom();
+    const { isConnected, clientId } = useWebSocket();
+    const { createGameRoom, joinRoom } = useGameRoom();
 
     const [newGameDialogOpen, setNewGameDialogOpen] = useState(false);
     const [joinGameDialogOpen, setJoinGameDialogOpen] = useState(false);
-    const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
     const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
 
     const [createLoading, setCreateLoading] = useState(false);
+    const [infoLoading, setInfoLoading] = useState(false);
 
-    const [gameType, setGameType] = useState<GameType | null>(null);
-    const [gameMode, setGameMode] = useState<GameMode | null>(null);
+    const [gameType, setGameType] = useState<GameType>(GameType.FLIPFLOP_3x3);
+    const [gameMode, setGameMode] = useState<GameMode>(GameMode.MULTIPLAYER);
 
     const [carouselApi, setCarouselApi] = useState<
         ReturnType<typeof useEmblaCarousel>[1] | null
@@ -74,7 +75,6 @@ export default function Home() {
         resolver: zodResolver(createGameFormSchema),
         defaultValues: {
             username: "",
-            password: "",
         },
     });
 
@@ -86,61 +86,150 @@ export default function Home() {
         },
     });
 
-    const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
-        resolver: zodResolver(passwordFormSchema),
-        defaultValues: {
-            password: "",
-        },
-    });
-
     const createGameFormSubmit = (
         data: z.infer<typeof createGameFormSchema>
     ) => {
-        const createGameRequest: any = {
-            username: data.username,
-            game_type: gameType,
-            game_mode: gameMode,
-        };
-
-        if (data.password && data.password.length > 0) {
-            createGameRequest.password = data.password;
-            setPassword(data.password);
-        }
-
         setCreateLoading(true);
-        setUsername(data.username);
 
         // Submit create game request to backend
-        api.post("/game/create", createGameRequest).then((response) => {
-            const roomId = response.data.game_room_id;
-            setRoomId(roomId);
-            setNewGameDialogOpen(false);
+        createGameRoom(data.username, gameType, gameMode)
+            .then((response) => {
+                // Redirect user to game page
+                router.push(`/game/${response}`);
+            })
+            .catch((error) => {
+                setCreateLoading(false);
+                if (isWSError(error)) {
+                    const errorInfo = getErrorInfo(error);
 
-            // Redirect user to game page
-            router.push(`/game/${roomId}`);
-        }).catch((error) => {
-            console.error("Error creating game:", error);
-            toast.error("An error occurred while creating the game.");
-        }).finally(() => {
-            setCreateLoading(false);
-        });
+                    if (
+                        isErrorCode(error, ErrorCode.VALIDATION_FAILED) &&
+                        error.details
+                    ) {
+                        const validationErrors = error.details as Record<
+                            string,
+                            string
+                        >;
+                        if (validationErrors.username) {
+                            createGameform.setError("username", {
+                                type: "manual",
+                                message: validationErrors.username,
+                            });
+                            return;
+                        }
+                    }
+
+                    switch (errorInfo.code) {
+                        case ErrorCode.ALREADY_IN_GAME:
+                            createGameform.setError("root", {
+                                type: "manual",
+                                message: errorInfo.message,
+                            });
+                            break;
+                        case ErrorCode.ID_GENERATION_FAILED:
+                            toast.error(errorInfo.message);
+                            break;
+                        default:
+                            toast.error(errorInfo.message);
+                            break;
+                    }
+                } else {
+                    // Handle non-WebSocket errors
+
+                    console.error("Error creating game:", error);
+                    toast.error("An error occurred while creating the game.");
+                }
+            });
     };
 
     const joinGameFormSubmit = (data: z.infer<typeof joinGameFormSchema>) => {
-        setRoomId(data.roomId);
-        setUsername(data.username);
+        setInfoLoading(true);
 
-        setJoinGameDialogOpen(false);
+        joinRoom(data.roomId, data.username)
+            .then(() => {
+                // Redirect user to game page
+                router.push(`/game/${data.roomId}`);
+            })
+            .catch((error) => {
+                setInfoLoading(false);
+                if (isWSError(error)) {
+                    const errorInfo = getErrorInfo(error);
 
-        // Redirect user to game page
-        router.push(`/game/${data.roomId}`);
+                    // Handle specific validation errors for individual fields
+                    if (
+                        isErrorCode(error, ErrorCode.VALIDATION_FAILED) &&
+                        error.details
+                    ) {
+                        const validationErrors = error.details as Record<string,string>;
+
+                        if (validationErrors.username) {
+                            joinGameform.setError("username", {
+                                type: "manual",
+                                message: validationErrors.username,
+                            });
+                        }
+                        if (validationErrors.room_id) {
+                            joinGameform.setError("roomId", {
+                                type: "manual",
+                                message: validationErrors.room_id,
+                            });
+                        }
+                        // If there are validation errors not tied to specific fields
+                        if (
+                            !validationErrors.username &&
+                            !validationErrors.room_id
+                        ) {
+                            joinGameform.setError("root", {
+                                type: "manual",
+                                message: errorInfo.message,
+                            });
+                        }
+                        return;
+                    }
+
+                    // Handle specific error codes
+                    switch (errorInfo.code) {
+                        case ErrorCode.ROOM_NOT_FOUND:
+                            joinGameform.setError("roomId", {
+                                type: "manual",
+                                message: errorInfo.message,
+                            });
+                            break;
+                        case ErrorCode.ROOM_CLOSED:
+                            joinGameform.setError("roomId", {
+                                type: "manual",
+                                message: errorInfo.message,
+                            });
+                            break;
+                        case ErrorCode.ALREADY_IN_GAME:
+                            joinGameform.setError("root", {
+                                type: "manual",
+                                message: errorInfo.message,
+                            });
+                            break;
+                        default:
+                            joinGameform.setError("root", {
+                                type: "manual",
+                                message: errorInfo.message,
+                            });
+                            break;
+                    }
+                } else {
+                    console.error("Error joining game:", error);
+                    joinGameform.setError("root", {
+                        type: "manual",
+                        message: "An error occurred while joining the game.",
+                    });
+                }
+            });
     };
-
-    const passwordFormSubmit = (data: z.infer<typeof passwordFormSchema>) => {};
 
     return (
         <>
-            <RulesDialog open={rulesDialogOpen} onOpenChange={setRulesDialogOpen} />
+            <RulesDialog
+                open={rulesDialogOpen}
+                onOpenChange={setRulesDialogOpen}
+            />
             {/* Create Game Dialog */}
             <Dialog
                 open={newGameDialogOpen}
@@ -150,8 +239,7 @@ export default function Home() {
                     <DialogHeader>
                         <DialogTitle>Create a New Game</DialogTitle>
                         <DialogDescription>
-                            Enter your player name and an optional password to
-                            create a new game.
+                            Enter your player name to create a new game.
                         </DialogDescription>
                     </DialogHeader>
                     <Form {...createGameform}>
@@ -177,26 +265,24 @@ export default function Home() {
                                     </FormItem>
                                 )}
                             ></FormField>
-                            <FormField
-                                control={createGameform.control}
-                                name='password'
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Room Password</FormLabel>
-                                        <FormControl>
-                                            <PInput
-                                                placeholder='Enter a password (optional)'
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            ></FormField>
+                            {createGameform.formState.errors.root && (
+                                <div className='text-sm font-medium text-destructive'>
+                                    {
+                                        createGameform.formState.errors.root
+                                            .message
+                                    }
+                                </div>
+                            )}
                             <DialogFooter>
-                                <Button className='w-full' type='submit' disabled={createLoading}>
+                                <Button
+                                    className='w-full'
+                                    type='submit'
+                                    disabled={createLoading}
+                                >
                                     {createLoading && <Spinner />}
-                                    {createLoading ? "Creating Game" : "Create Game"}
+                                    {createLoading
+                                        ? "Creating Game"
+                                        : "Create Game"}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -256,55 +342,19 @@ export default function Home() {
                                     </FormItem>
                                 )}
                             ></FormField>
-                            <DialogFooter>
-                                <Button className='w-full' type='submit'>
-                                    Join Game
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </Form>
-                </DialogContent>
-            </Dialog>
-
-            {/* Password prompt dialog */}
-            <Dialog
-                open={passwordDialogOpen}
-                onOpenChange={(open) => setPasswordDialogOpen(open)}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Enter Room Password</DialogTitle>
-                        <DialogDescription>
-                            This room is protected by a password. Please enter
-                            the password to join the game.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <Form {...passwordForm}>
-                        <form
-                            onSubmit={passwordForm.handleSubmit(
-                                passwordFormSubmit
+                            {joinGameform.formState.errors.root && (
+                                <div className='text-sm font-medium text-destructive'>
+                                    {joinGameform.formState.errors.root.message}
+                                </div>
                             )}
-                            className='space-y-8'
-                        >
-                            <FormField
-                                control={passwordForm.control}
-                                name='password'
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Password</FormLabel>
-                                        <FormControl>
-                                            <PInput
-                                                placeholder='Enter the room password'
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
                             <DialogFooter>
-                                <Button className='w-full' type='submit'>
-                                    Submit
+                                <Button
+                                    className='w-full'
+                                    type='submit'
+                                    disabled={infoLoading}
+                                >
+                                    {infoLoading && <Spinner />}
+                                    {infoLoading ? "Joining Game" : "Join Game"}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -314,6 +364,14 @@ export default function Home() {
 
             {/* Main Menu */}
             <main className='min-h-screen flex flex-col items-center justify-center'>
+                {!isConnected && (
+                    <div className='absolute w-full h-full bg-background z-50 flex flex-col justify-center items-center gap-2'>
+                        <FlipFlopLoader />
+                        <p className='text-muted-foreground'>
+                            Connecting to server...
+                        </p>
+                    </div>
+                )}
                 <h1 className='text-7xl mb-8'>FlipFlop</h1>
 
                 <Carousel
@@ -333,7 +391,10 @@ export default function Home() {
                                 text='Join Game'
                                 onClick={() => setJoinGameDialogOpen(true)}
                             />
-                            <MenuButton text='Rules' onClick={() => setRulesDialogOpen(true)} />
+                            <MenuButton
+                                text='Rules'
+                                onClick={() => setRulesDialogOpen(true)}
+                            />
                         </CarouselItem>
                         <CarouselItem className='flex justify-center items-center flex-col gap-4'>
                             <div className='flex justify-center flex-row gap-4'>
@@ -398,6 +459,10 @@ export default function Home() {
                         </CarouselItem>
                     </CarouselContent>
                 </Carousel>
+                <div className='absolute bottom-0 right-0 px-2 flex flex-row gap-4 text-muted-foreground text-xs'>
+                    <p>v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
+                    <p>Client ID: {clientId}</p>
+                </div>
             </main>
         </>
     );

@@ -1,12 +1,96 @@
 enum GameType {
-    FLIPFLOP_3x3 = 1,
-    FLIPFLOP_5x5 = 2,
-    FLIPFOUR = 3,
+    FLIPFLOP_3x3 = "flipflop3x3",
+    FLIPFLOP_5x5 = "flipflop5x5",
+    FLIPFOUR = "flipfour",
 }
 
 enum GameMode {
-    SINGLEPLAYER = 1,
-    MULTIPLAYER = 2,
+    SINGLEPLAYER = "singleplayer",
+    MULTIPLAYER = "multiplayer",
 }
 
-export { GameType, GameMode };
+enum PlayerColor {
+    WHITE = 0,
+    BLACK = 1,
+}
+
+enum ErrorCode {
+    VALIDATION_FAILED = "validation_failed",
+    INVALID_REQUEST_PAYLOAD = "invalid_request_payload",
+    ALREADY_IN_GAME = "already_in_game",
+    INVALID_MESSAGE_FORMAT = "invalid_message_format",
+    INVALID_MESSAGE_PAYLOAD = "invalid_message_payload",
+    ROOM_NOT_FOUND = "room_not_found",
+    ROOM_CLOSED = "room_closed",
+    CLIENT_NOT_FOUND = "client_not_found",
+    INVALID_MSG_TYPE = "invalid_msg_type",
+    NOT_IN_GAME = "must_join_game_first",
+    GAME_NOT_STARTED = "game_not_started",
+    NOT_YOUR_TURN = "not_your_turn",
+    ILLEGAL_MOVE = "illegal_move",
+    GAME_ENDED = "game_ended",
+    PLAYER_NOT_ACTIVE = "player_not_active",
+    ID_GENERATION_FAILED = "id_generation_failed",
+}
+
+interface CreateGameRequest {
+    username: string;
+    game_type: GameType;
+    game_mode: GameMode;
+}
+
+interface WSMessage {
+    type: string;
+    payload: any;
+    request_id?: string;
+}
+
+
+interface WSError {
+    code: ErrorCode | string;
+    details?: any;
+}
+
+interface CreateGameRequest {
+    username: string;
+    game_type: GameType;
+    game_mode: GameMode;
+}
+
+interface CreateGameResponse {
+    room_id: string;
+    is_spectator: boolean;
+}
+
+interface JoinGameRequest {
+    room_id: string;
+    username: string;
+}
+
+interface JoinGameResponse {
+    is_spectator: boolean;
+    game_type: GameType;
+    game_mode: GameMode;
+}
+
+interface MessageSendRequest {
+    content: string;
+}
+
+interface MessageEvent {
+    clientId: string;
+    username: string;
+    message: string;
+}
+
+export { GameType, GameMode, PlayerColor, ErrorCode };
+export type {
+    CreateGameResponse,
+    CreateGameRequest,
+    JoinGameRequest,
+    JoinGameResponse,
+    MessageEvent,
+    MessageSendRequest,
+    WSMessage,
+    WSError,
+};
