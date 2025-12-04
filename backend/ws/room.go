@@ -238,29 +238,28 @@ func (gr *GameRoom) LeaveRoom(id string) {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
+	delete(gr.conns, id)
+
 	player := gr.getPlayer(id)
 	if player != nil {
 		player.IsActive = false
-	}
 
-	delete(gr.conns, id)
+		gr.broadcastGameUpdate(MsgPlayerLeftRoom, types.JSONMap{
+			"player_id": id,
+		}, nil)
 
-	// Notify player left
-	gr.broadcastGameUpdate(MsgPlayerLeftRoom, types.JSONMap{
-		"player_id": id,
-	}, nil)
+		if gr.playersInactive() {
+			gr.status = StatusClosed
 
-	// If no players remain, close the room
-	if gr.playersInactive() {
-		gr.status = StatusClosed
-
-		if len(gr.conns) > 0 {
-			// Notify spectators that the room is closed
-			gr.broadcastGameUpdate(MsgTypeGameEnd, types.JSONMap{
-				"reason": "players_left",
-			}, nil)
+			if len(gr.conns) > 0 {
+				// Notify spectators that the room is closed
+				gr.broadcastGameUpdate(MsgTypeGameEnd, types.JSONMap{
+					"reason": "players_left",
+				}, nil)
+			}
 		}
 	}
+
 }
 
 // Starts the game if both player slots are filled and active.
