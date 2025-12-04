@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, Flag } from "lucide-react";
-import { Board } from "../board";
-import { GameType, PlayerColor } from "@/types/types";
+import { Copy, Check, Flag, ArrowLeft } from "lucide-react";
+import { PlayerColor } from "@/types/types";
 import { useParams, useRouter } from "next/navigation";
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
@@ -16,6 +15,10 @@ import FlipFlopLoader from "@/components/FlipFlopLoader/FlipFlopLoader";
 import { toast } from "sonner";
 import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
 import { ErrorCode } from "@/types/types";
+import { Spinner } from "@/components/ui/spinner";
+import { useEffect, useState } from "react";
+import { Chat } from "@/components/Chat/Chat";
+import { FlipFlop } from "@/components/FlipFlop/FlipFlop";
 import z from "zod";
 import {
     Card,
@@ -41,9 +44,7 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { Spinner } from "@/components/ui/spinner";
-import { useEffect, useState } from "react";
-import { Chat } from "@/components/Chat/Chat";
+
 
 const initialMoves = [
     { id: 1, player: 1, notation: "e1-e4" },
@@ -67,6 +68,7 @@ export default function GamePage() {
         gameMode,
         gameState,
         joinRoom,
+        leaveRoom,
         currentPlayer,
         opponentPlayer,
     } = useGameRoom();
@@ -203,6 +205,15 @@ export default function GamePage() {
 
     const handleForfeit = () => {};
 
+    const handleLeaveGame = async () => {
+        const success = await leaveRoom();
+        if (success) {
+            router.push("/");
+        } else {
+            toast.error("Failed to leave the room.");
+        }
+    };
+
     return (
         <>
             {showLoadingOverlay && (
@@ -247,7 +258,7 @@ export default function GamePage() {
                                     {usernameform.formState.errors.root.message}
                                 </div>
                             )}
-                            <DialogFooter>
+                            <DialogFooter className="flex-col sm:flex-col gap-2">
                                 <Button
                                     className='w-full'
                                     type='submit'
@@ -255,6 +266,14 @@ export default function GamePage() {
                                 >
                                     {joinLoading && <Spinner />}
                                     {joinLoading ? "Joining..." : "Submit"}
+                                </Button>
+                                <Button
+                                    className='w-full'
+                                    variant='outline'
+                                    type='button'
+                                    onClick={() => router.push("/")}
+                                >
+                                    Go Back
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -269,13 +288,21 @@ export default function GamePage() {
                 ) : (
                     <div className='md:flex flex-col md:flex-row md:h-screen min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 font-inter p-4 gap-4'>
                         {/* Main Game Area */}
-                        <div className='md:flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 flex-col items-center justify-between overflow-hidden'>
+                        <div className='md:flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 flex-col items-center justify-between overflow-hidden relative'>
+                            <Button
+                                variant="outline"
+                                className="absolute top-4 left-4 gap-2"
+                                onClick={handleLeaveGame}
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                                Exit Game
+                            </Button>
                             <div className='flex items-center text-lg font-semibold text-red-500 dark:text-red-400 mb-4'>
                                 {opponentPlayer?.username || "Waiting for opponent player to join..."}
                             </div>
 
                             <div className='flex items-center justify-center w-full max-w-[80vh] and max-h-[80vh] aspect-square bg-gray-200 dark:bg-gray-700 rounded-xl shadow-inner border-4 border-gray-300 dark:border-gray-600 '>
-                                <Board
+                                <FlipFlop
                                     type={gameType}
                                     side={PlayerColor.WHITE}
                                 />

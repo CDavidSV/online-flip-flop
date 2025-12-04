@@ -1,12 +1,5 @@
 "use client";
 
-import {
-    createContext,
-    ReactNode,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
 import { useWebSocket } from "./wsContext";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -21,6 +14,13 @@ import {
     Player,
     PlayerColor,
 } from "@/types/types";
+import {
+    createContext,
+    ReactNode,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
 
 interface GameRoomContext {
     roomId: string | null;
@@ -38,6 +38,7 @@ interface GameRoomContext {
         gameMode: GameMode
     ) => Promise<string>;
     joinRoom: (roomId: string, username: string) => Promise<JoinGameResponse>;
+    leaveRoom: () => Promise<boolean>;
 }
 
 const gameRoomContext = createContext<GameRoomContext>({
@@ -67,6 +68,7 @@ const gameRoomContext = createContext<GameRoomContext>({
             },
         };
     },
+    leaveRoom: () => { return Promise.resolve(false); },
 });
 
 export const useGameRoom = () => {
@@ -275,6 +277,22 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const leaveRoom = async (): Promise<boolean> => {
+        if (!isConnected || !inRoom) return false;
+
+        try {
+            const response = await sendRequest("leave", null);
+            if (response.type === "left") {
+                resetState();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("Failed to leave room:", error);
+            return false;
+        }
+    }
+
     return (
         <gameRoomContext.Provider
             value={{
@@ -289,6 +307,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                 opponentPlayer,
                 createGameRoom,
                 joinRoom,
+                leaveRoom,
             }}
         >
             {children}

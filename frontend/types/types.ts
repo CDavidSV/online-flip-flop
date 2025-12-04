@@ -14,6 +14,11 @@ enum PlayerColor {
     BLACK = 1,
 }
 
+enum PieceType {
+    ROOK = 0,
+    BISHOP = 1,
+}
+
 enum ErrorCode {
     VALIDATION_FAILED = "validation_failed",
     INVALID_REQUEST_PAYLOAD = "invalid_request_payload",
@@ -104,7 +109,14 @@ interface Player {
     is_ai: boolean;
 }
 
-export { GameType, GameMode, PlayerColor, ErrorCode };
+interface FFPiece {
+    color: PlayerColor;
+    side: PieceType;
+    pos: [number, number];
+    captured: boolean;
+}
+
+export { GameType, GameMode, PlayerColor, PieceType, ErrorCode };
 export type {
     CreateGameResponse,
     CreateGameRequest,
@@ -116,5 +128,6 @@ export type {
     WSError,
     WSEventType,
     Player,
+    FFPiece,
     GameStatus
 };
