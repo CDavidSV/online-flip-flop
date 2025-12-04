@@ -72,10 +72,19 @@ interface JoinGameRequest {
     username: string;
 }
 
+interface GameState {
+    board: string;
+    current_turn: PlayerColor;
+    status: GameStatus;
+    winner: PlayerColor | null;
+    players: Player[];
+}
+
 interface JoinGameResponse {
     is_spectator: boolean;
     game_type: GameType;
     game_mode: GameMode;
+    game_state: GameState;
 }
 
 interface MessageSendRequest {
@@ -89,10 +98,10 @@ interface MessageEvent {
 }
 
 interface Player {
-    cliendId: string;
+    id: string;
     username: string;
     color: PlayerColor | null;
-    isAi: boolean;
+    is_ai: boolean;
 }
 
 export { GameType, GameMode, PlayerColor, ErrorCode };

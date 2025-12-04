@@ -19,6 +19,7 @@ import {
     JoinGameResponse,
     GameStatus,
     Player,
+    PlayerColor,
 } from "@/types/types";
 
 interface GameRoomContext {
@@ -57,6 +58,13 @@ const gameRoomContext = createContext<GameRoomContext>({
             is_spectator: false,
             game_type: GameType.FLIPFLOP_3x3,
             game_mode: GameMode.MULTIPLAYER,
+            game_state: {
+                players: [],
+                board: "",
+                current_turn: PlayerColor.WHITE,
+                status: "waiting_for_players",
+                winner: null,
+            },
         };
     },
 });
@@ -119,19 +127,19 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
 
                 if (current) {
                     setCurrentPlayer({
-                        cliendId: current.id,
+                        id: current.id,
                         username: current.username,
                         color: current.color,
-                        isAi: current.is_ai,
+                        is_ai: current.is_ai,
                     });
                 }
 
                 if (opponent) {
                     setOpponentPlayer({
-                        cliendId: opponent.id,
+                        id: opponent.id,
                         username: opponent.username,
                         color: opponent.color,
-                        isAi: opponent.is_ai,
+                        is_ai: opponent.is_ai,
                     });
                 }
             }
@@ -204,10 +212,10 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
             setGameType(gameType);
             setGameMode(gameMode);
             setCurrentPlayer({
-                cliendId: response.payload.clientId,
+                id: response.payload.clientId,
                 username,
                 color: null,
-                isAi: false,
+                is_ai: false,
             });
 
             return payload.room_id;
@@ -244,12 +252,21 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
             setIsSpectator(payload.is_spectator);
             setGameType(payload.game_type);
             setGameMode(payload.game_mode);
-            setCurrentPlayer({
-                cliendId: response.payload.clientId,
-                username,
-                color: null,
-                isAi: false,
-            });
+
+            if (payload.is_spectator) {
+                // Set players by color for spectators
+                const players = payload.game_state.players;
+                setCurrentPlayer(players.find(p => p.color === PlayerColor.WHITE) || null);
+                setOpponentPlayer(players.find(p => p.color === PlayerColor.BLACK) || null);
+            } else {
+                setCurrentPlayer({
+                    id: response.payload.clientId,
+                    username,
+                    color: null,
+                    is_ai: false,
+                });
+            }
+
 
             return payload;
         } catch (error) {
