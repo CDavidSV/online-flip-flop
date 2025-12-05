@@ -107,6 +107,15 @@ func WSHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
+		// Store client_id from query params in the session
+		clientID := req.URL.Query().Get("client_id")
+		if clientID != "" {
+			// Validate that it's a valid UUID
+			if _, err := uuid.Parse(clientID); err == nil {
+				socket.Session().Store("client_id", clientID)
+			}
+		}
+
 		go func() {
 			socket.ReadLoop()
 		}()
@@ -303,8 +312,12 @@ func (s *Server) handleSendMessage(socket *gws.Conn, msg IncomingMessage) {
 
 // ------------------ WebSocket event handlers ------------------
 func (s *Server) OnOpen(socket *gws.Conn) {
-	clientID := uuid.New().String()
-	socket.Session().Store("client_id", clientID)
+	// Get client id from session if provided during upgrade
+	clientID := mustLoad[string](socket.Session(), "client_id")
+	if clientID == "" {
+		clientID = uuid.New().String()
+		socket.Session().Store("client_id", clientID)
+	}
 
 	// Set ping deadline
 	if err := socket.SetDeadline(time.Now().Add(PingInterval + PingWait)); err != nil {
