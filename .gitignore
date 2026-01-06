@@ -12,6 +12,11 @@
 # mac system files
 .DS_Store
 
+# certificates
+cert/
+*.pem
+*.key
+
 # ---- Go ----
 
 # Binaries for programs and plugins

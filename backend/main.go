@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
@@ -15,6 +16,12 @@ import (
 )
 
 func main() {
+	prod := flag.Bool("prod", false, "Run in production mode")
+	host := flag.String("host", "localhost:8000", "Host address for the server")
+	certFile := flag.String("cert", "./cert/localhost.pem", "TLS Certificate")
+	keyFile := flag.String("key", "./cert/localhost-key.pem", "TLS Key")
+	flag.Parse()
+
 	r := chi.NewRouter()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -22,6 +29,7 @@ func main() {
 
 	fmt.Println(config.Banner)
 	fmt.Println("Version:", config.Version)
+	fmt.Println("Server listening on", *host)
 
 	// Middleware
 	r.Use(Logger)
@@ -33,5 +41,11 @@ func main() {
 	r.Get("/ws", ws.WSHandler(gameServer))
 
 	// Start Server
-	log.Fatal(http.ListenAndServe(":8000", r))
+	if *prod {
+		slog.Info("Running in production mode")
+		log.Fatal(http.ListenAndServeTLS(*host, *certFile, *keyFile, r))
+	} else {
+		slog.Info("Running in development mode")
+		log.Fatal(http.ListenAndServe(*host, r))
+	}
 }

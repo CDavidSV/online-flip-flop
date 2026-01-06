@@ -51,7 +51,7 @@ type CreateRoom struct {
 
 type JoinRoom struct {
 	RoomID   string `json:"room_id" validate:"required,min=4,max=4"`
-	Username string `json:"username" validate:"required,min=2,max=20"`
+	Username string `json:"username" validate:"omitempty,min=2,max=20"`
 }
 
 type ChatMessage struct {

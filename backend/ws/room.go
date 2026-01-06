@@ -182,18 +182,18 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 		return false, apperrors.ErrRoomClosed
 	}
 
-	clientConnection := &ClientConnection{
-		ID:          id,
-		conn:        conn,
-		isSpectator: false,
-		Username:    username,
-	}
-	gr.conns[id] = clientConnection
-
 	player := gr.getPlayer(id)
 	if player != nil {
 		// Reconnecting player
 		player.IsActive = true
+
+		clientConnection := &ClientConnection{
+			ID:          id,
+			conn:        conn,
+			isSpectator: false,
+			Username:    player.Username,
+		}
+		gr.conns[id] = clientConnection
 
 		// Notify player rejoined
 		gr.broadcastGameUpdate(MsgPlayerRejoined, types.JSONMap{
@@ -202,6 +202,19 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 
 		return false, nil
 	}
+
+	// For a new player username is required
+	if username == "" {
+		return false, apperrors.ErrUsernameRequired
+	}
+
+	clientConnection := &ClientConnection{
+		ID:          id,
+		conn:        conn,
+		isSpectator: false,
+		Username:    username,
+	}
+	gr.conns[id] = clientConnection
 
 	var assignedSlot **PlayerSlot
 	var color games.PlayerSide
