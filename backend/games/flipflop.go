@@ -87,39 +87,39 @@ func encodeBoardState(board [][]*FFPiece, currentTurn PlayerSide) string {
 
 	// Example string: "aoa/ybo/oxx 1"
 
-	fenStr := ""
+	var fenStr strings.Builder
 	for i, row := range board {
 		for _, piece := range row {
 			if piece == nil {
-				fenStr += "o"
+				fenStr.WriteString("o")
 				continue
 			}
 			switch {
 			case piece.Color == COLOR_BLACK && piece.Side == SIDE_ROOK:
-				fenStr += "a"
+				fenStr.WriteString("a")
 			case piece.Color == COLOR_BLACK && piece.Side == SIDE_BISHOP:
-				fenStr += "b"
+				fenStr.WriteString("b")
 			case piece.Color == COLOR_WHITE && piece.Side == SIDE_ROOK:
-				fenStr += "x"
+				fenStr.WriteString("x")
 			case piece.Color == COLOR_WHITE && piece.Side == SIDE_BISHOP:
-				fenStr += "y"
+				fenStr.WriteString("y")
 			}
 		}
 
 		// Add a '/' to separate rows
 		if i < len(board)-1 {
-			fenStr += "/"
+			fenStr.WriteString("/")
 		}
 	}
 
 	// Add the current turn at the end
 	if currentTurn == COLOR_WHITE {
-		fenStr += "1"
+		fenStr.WriteString("1")
 	} else {
-		fenStr += "2"
+		fenStr.WriteString("2")
 	}
 
-	return fenStr
+	return fenStr.String()
 }
 
 // Initializes the game board and places the pieces in their starting positions.
@@ -198,7 +198,6 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 
 	// Flag to indicate if the player can make any move
 	canMove := false
-	isOnCheck := player.onCheck
 
 	// If the player is on check, they can only move pieces that can get them out of check
 	// In FlipFlop, this means moving a piece that is currently occupying the current player's goal square
@@ -247,12 +246,6 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 				if occupyingPiece != nil {
 					// If there is a piece in the current position, check if it's a goal square and if it belongs to the opponent
 					if g.isGoalSquare(pos) && occupyingPiece.Color != piece.Color {
-						if isOnCheck && !isPosEqual(pos, player.goal) {
-							// If the player is on check, they can only move pieces that can get them out of check
-							break
-						}
-
-						// Allow the move to the goal square
 						moves = append(moves, FFBoardPos{Row: pos.Row, Col: pos.Col})
 						canMove = true
 					}
@@ -262,10 +255,8 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 				}
 
 				// Valid move
-				if !isOnCheck {
-					moves = append(moves, FFBoardPos{Row: pos.Row, Col: pos.Col})
-					canMove = true
-				}
+				moves = append(moves, FFBoardPos{Row: pos.Row, Col: pos.Col})
+				canMove = true
 			}
 		}
 
@@ -275,6 +266,22 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 	}
 
 	return validMoves, canMove
+}
+
+func (g *FlipFlop) flipPieceSide(piece *FFPiece) {
+	if piece.Side == SIDE_ROOK {
+		piece.Side = SIDE_BISHOP
+	} else {
+		piece.Side = SIDE_ROOK
+	}
+}
+
+func (g *FlipFlop) changeTurn() {
+	if g.currentTurn == COLOR_WHITE {
+		g.currentTurn = COLOR_BLACK
+	} else {
+		g.currentTurn = COLOR_WHITE
+	}
 }
 
 func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
@@ -299,17 +306,13 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 		opponent = g.player1
 	}
 
-	// Change fromPos and toPos to uppercase
-	fromPos := strings.ToUpper(moveData.From)
-	toPos := strings.ToUpper(moveData.To)
-
 	// Parse and validate board positions
-	oldPos, err := g.parsePosition(fromPos)
+	oldPos, err := g.parsePosition(strings.ToUpper(moveData.From))
 	if err != nil {
 		return apperrors.ErrInvalidMessageFormat
 	}
 
-	newPos, err := g.parsePosition(toPos)
+	newPos, err := g.parsePosition(strings.ToUpper(moveData.To))
 	if err != nil {
 		return apperrors.ErrInvalidMessageFormat
 	}
@@ -344,7 +347,6 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 	if occupyingPiece != nil {
 		// Allow the move to the goal square, and capture the piece
 		occupyingPiece.Captured = true
-
 	}
 
 	if isPosEqual(*newPos, opponent.goal) {
@@ -362,24 +364,12 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 	// Update the piece's position
 	piece.Pos = *newPos
 
-	// Flip the piece
-	if piece.Side == SIDE_ROOK {
-		piece.Side = SIDE_BISHOP
-	} else {
-		piece.Side = SIDE_ROOK
-	}
-
-	// Switch turns
-	if g.currentTurn == COLOR_WHITE {
-		g.currentTurn = COLOR_BLACK
-	} else {
-		g.currentTurn = COLOR_WHITE
-	}
+	g.flipPieceSide(piece)
+	g.changeTurn()
 
 	// Take a snapshot of the new board state
 	fen := encodeBoardState(g.board, g.currentTurn)
 	g.boardHistory = append(g.boardHistory, fen)
-	g.positionCounts[fen]++
 
 	// Check for game end conditions
 	// After the move, check if the current player has any pieces in their goal
@@ -391,22 +381,22 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 		return nil
 	}
 
-	// Check for threefold repetition
-	if g.positionCounts[fen] >= 3 {
-		g.gameEnded = true
-
-		// Draw
-		return nil
-	}
-
 	// Get valid moves for the opponent
 	opponentValidMoves, canMove := g.getValidMoves(opponent)
 	opponent.validMoves = opponentValidMoves
-
 	if !canMove {
 		// Opponent has no valid moves
 		g.winner = g.currentTurn
 
+		return nil
+	}
+
+	// Check for threefold repetition
+	g.positionCounts[fen]++
+	if g.positionCounts[fen] == 3 {
+		g.gameEnded = true
+
+		// Draw
 		return nil
 	}
 
@@ -466,7 +456,9 @@ func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
 	game.player1.validMoves = validMoves
 
 	// Take a snapshot of the initial board state
-	game.boardHistory = append(game.boardHistory, encodeBoardState(game.board, game.currentTurn))
+	initialState := encodeBoardState(game.board, game.currentTurn)
+	game.boardHistory = append(game.boardHistory, initialState)
+	game.positionCounts[initialState] = 1 // Initial position count is 1
 
 	return game
 }
