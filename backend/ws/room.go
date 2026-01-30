@@ -184,6 +184,11 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 
 	player := gr.getPlayer(id)
 	if player != nil {
+		if player.IsActive {
+			// Player is already active in the room
+			return false, apperrors.ErrAlreadyInGame
+		}
+
 		// Reconnecting player
 		player.IsActive = true
 
