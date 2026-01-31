@@ -16,10 +16,7 @@ import (
 )
 
 func main() {
-	prod := flag.Bool("prod", false, "Run in production mode")
 	host := flag.String("host", "localhost:8000", "Host address for the server")
-	certFile := flag.String("cert", "./cert/localhost.pem", "TLS Certificate")
-	keyFile := flag.String("key", "./cert/localhost-key.pem", "TLS Key")
 	flag.Parse()
 
 	r := chi.NewRouter()
@@ -41,11 +38,6 @@ func main() {
 	r.Get("/ws", ws.WSHandler(gameServer))
 
 	// Start Server
-	if *prod {
-		slog.Info("Running in production mode")
-		log.Fatal(http.ListenAndServeTLS(*host, *certFile, *keyFile, r))
-	} else {
-		slog.Info("Running in development mode")
-		log.Fatal(http.ListenAndServe(*host, r))
-	}
+	slog.Info("Running in development mode")
+	log.Fatal(http.ListenAndServe(*host, r))
 }

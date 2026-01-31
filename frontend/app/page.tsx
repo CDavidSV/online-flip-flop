@@ -488,9 +488,8 @@ export default function Home() {
                         </CarouselItem>
                     </CarouselContent>
                 </Carousel>
-                <div className='absolute bottom-0 right-0 px-2 flex flex-row gap-4 text-muted-foreground text-xs'>
+                <div className='absolute bottom-0 right-0 w-full px-2 flex flex-row gap-4 text-muted-foreground text-xs'>
                     <p>v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
-                    <p>Client ID: {clientId}</p>
                 </div>
             </main>
         </>
