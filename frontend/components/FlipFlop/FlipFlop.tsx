@@ -15,9 +15,15 @@ export interface BoardProps {
     type: GameType;
     side: PlayerColor;
     initialBoardState?: string;
+    onMoveMade?: (from: string, to: string) => void;
 }
 
-export function FlipFlop({ type, side, initialBoardState }: BoardProps) {
+export function FlipFlop({
+    type,
+    side,
+    initialBoardState,
+    onMoveMade,
+}: BoardProps) {
     const TURN_INDICATOR_DURATION = 2000; // Duration in milliseconds
 
     const router = useRouter();
@@ -35,7 +41,7 @@ export function FlipFlop({ type, side, initialBoardState }: BoardProps) {
         goals = [2, 22];
     }
 
-    const { gameStatus, currentTurn, setCurrentTurn } = useGameRoom();
+    const { gameStatus, currentTurn, setCurrentTurn, resetRoom } = useGameRoom();
     const { sendRequest, on } = useWebSocket();
 
     const [gameBoard, setGameBoard] = useState<(FFPiece | null)[][]>([]);
@@ -285,9 +291,6 @@ export function FlipFlop({ type, side, initialBoardState }: BoardProps) {
     };
 
     const selectPiece = (piece: FFPiece) => {
-        console.log("Selecting piece:", piece);
-        console.log("Current turn:", currentTurn);
-        console.log("Player side:", side);
         // Only allow selecting own pieces when game is ongoing and it's the player's turn
         if (
             piece.color !== side ||
@@ -353,6 +356,11 @@ export function FlipFlop({ type, side, initialBoardState }: BoardProps) {
             prev === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE,
         );
 
+        // Notify parent component of the move
+        if (onMoveMade) {
+            onMoveMade(fromPos, toPos);
+        }
+
         // Change turn
         sendRequest("move", {
             from: fromPos,
@@ -369,6 +377,7 @@ export function FlipFlop({ type, side, initialBoardState }: BoardProps) {
     };
 
     const handleReturnToMenu = () => {
+        resetRoom();
         router.push("/");
     };
 
@@ -538,9 +547,7 @@ export function FlipFlop({ type, side, initialBoardState }: BoardProps) {
                                             piece.selected
                                                 ? "scale-105"
                                                 : "scale-100",
-                                            piece.pos[0] * boardSize +
-                                                piece.pos[1] ===
-                                                goals[0] && isValidMove
+                                            isValidMove
                                                 ? "animate-pulse"
                                                 : "",
                                         )}

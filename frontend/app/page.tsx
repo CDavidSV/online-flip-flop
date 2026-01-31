@@ -51,7 +51,7 @@ const joinGameFormSchema = z.object({
 export default function Home() {
     const router = useRouter();
     const { isConnected, clientId } = useWebSocket();
-    const { createGameRoom, joinRoom, leaveRoom } = useGameRoom();
+    const { createGameRoom, joinRoom, leaveRoom, inRoom } = useGameRoom();
 
     const [newGameDialogOpen, setNewGameDialogOpen] = useState(false);
     const [joinGameDialogOpen, setJoinGameDialogOpen] = useState(false);
@@ -83,7 +83,9 @@ export default function Home() {
     });
 
     useEffect(() => {
-        leaveRoom();
+        if(inRoom) {
+            leaveRoom();
+        }
     }, []);
 
     const createGameFormSubmit = (

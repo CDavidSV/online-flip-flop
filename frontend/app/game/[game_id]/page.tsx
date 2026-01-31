@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
 import { ErrorCode } from "@/types/types";
 import { Spinner } from "@/components/ui/spinner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Chat } from "@/components/Chat/Chat";
 import { FlipFlop } from "@/components/FlipFlop/FlipFlop";
 import z from "zod";
@@ -64,9 +64,10 @@ export default function GamePage() {
     } = useGameRoom();
 
     const [moves, setMoves] = useState<
-        { id: number; player: number; notation: string }[]
+        { id: number; player: string; notation: string }[]
     >([]);
     const [copied, setCopied] = useState(false);
+    const [gameEnded, setGameEnded] = useState(false);
     const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
     const [joinLoading, setJoinLoading] = useState(false);
     const [showLoadingOverlay, setShowLoadingOverlay] = useState(true);
@@ -77,6 +78,8 @@ export default function GamePage() {
     const [initialGameBoard, setInitialGameBoard] = useState<
         string | undefined
     >(undefined);
+    const moveHistoryEndRef = useRef<HTMLDivElement>(null);
+    const viewportRef = useRef<HTMLDivElement>(null);
 
     const usernameform = useForm<z.infer<typeof usernameFormSchema>>({
         resolver: zodResolver(usernameFormSchema),
@@ -136,6 +139,8 @@ export default function GamePage() {
     };
 
     useEffect(() => {
+        if (gameEnded) return;
+
         // Redirect to home if game_id is not provided
         if (!game_id || game_id.length !== 4) {
             router.push("/");
@@ -177,33 +182,54 @@ export default function GamePage() {
             setShowLoadingOverlay(true);
             setLoadingOverlayMsg("Connecting to server...");
         }
-    }, [isConnected, inRoom, game_id, router, attemptedRejoin]);
+    }, [isConnected, inRoom, game_id, router, attemptedRejoin, gameEnded]);
+
+    useEffect(() => {
+        if (gameStatus === "closed") {
+            setGameEnded(true);
+        }
+    }, [gameStatus]);
+
+    useEffect(() => {
+        if (viewportRef.current) {
+            viewportRef.current.scrollTo({
+                top: viewportRef.current.scrollHeight,
+                behavior: "smooth",
+            });
+        }
+    }, [moves]);
+
+    const addMove = (from: string, to: string, playerName: string) => {
+        setMoves((prevMoves) => {
+            const moveNumber = prevMoves.length + 2;
+            return [
+                ...prevMoves,
+                {
+                    id: moveNumber,
+                    player: playerName,
+                    notation: `${from}-${to}`,
+                },
+            ];
+        });
+    };
 
     useEffect(() => {
         if (!isConnected) return;
 
         const cleanupMove = on("move", (payload: GameMoveMsg) => {
-            console.log("Received move payload:", payload);
             if (payload.move.from && payload.move.to) {
-                setMoves((prevMoves) => {
-                    const moveNumber = prevMoves.length + 1;
-                    const player = moveNumber % 2 === 1 ? 1 : 2;
-                    return [
-                        ...prevMoves,
-                        {
-                            id: moveNumber,
-                            player: player,
-                            notation: `${payload.move.from}-${payload.move.to}`,
-                        },
-                    ];
-                });
+                addMove(
+                    payload.move.from,
+                    payload.move.to,
+                    opponentPlayer?.username || "Unknown",
+                );
             }
         });
 
         return () => {
             cleanupMove();
         };
-    }, [isConnected, on]);
+    }, [isConnected, on, opponentPlayer]);
 
     const copyRoomId = () => {
         const textarea = document.createElement("textarea");
@@ -241,6 +267,10 @@ export default function GamePage() {
     };
 
     const handleForfeit = () => {};
+
+    const handleMoveMade = (from: string, to: string) => {
+        addMove(from, to, currentPlayer?.username || "Unknown");
+    };
 
     return (
         <>
@@ -331,6 +361,7 @@ export default function GamePage() {
                                         PlayerColor.WHITE
                                     }
                                     initialBoardState={initialGameBoard}
+                                    onMoveMade={handleMoveMade}
                                 />
                             </div>
 
@@ -399,13 +430,14 @@ export default function GamePage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className='h-48 p-0'>
-                                    <ScrollArea className='h-full rounded-md'>
+                                    <ScrollArea className='h-full rounded-md' viewportRef={viewportRef}>
                                         <div className='px-4'>
                                             {moves.map((move) => (
                                                 <div
                                                     key={move.id}
                                                     className={`flex items-center justify-between py-1 px-2 rounded-md transition-colors mt-1 ${
-                                                        move.player === 1
+                                                        move.player ===
+                                                        currentPlayer?.username
                                                             ? "bg-blue-50 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
                                                             : "bg-green-50 dark:bg-green-900/50 text-green-800 dark:text-green-200"
                                                     }`}
@@ -414,9 +446,7 @@ export default function GamePage() {
                                                         {Math.ceil(move.id / 2)}
                                                         .
                                                         <span className='ml-1 text-xs'>
-                                                            {move.player === 1
-                                                                ? "P1"
-                                                                : "P2"}
+                                                            {move.player}
                                                         </span>
                                                     </span>
                                                     <span className='font-mono text-sm w-3/4 text-right'>
@@ -429,6 +459,7 @@ export default function GamePage() {
                                                     No moves played yet.
                                                 </p>
                                             )}
+                                            <div ref={moveHistoryEndRef} />
                                         </div>
                                     </ScrollArea>
                                 </CardContent>

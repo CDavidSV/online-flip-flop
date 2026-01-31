@@ -28,6 +28,7 @@ export function Chat() {
     const [messageInput, setMessageInput] = useState("");
 
     const bottomChatRef = useRef<HTMLSpanElement>(null);
+    const viewportRef = useRef<HTMLDivElement>(null);
 
     const handleSendMessage = () => {
         if (!isConnected || !clientId) return;
@@ -77,8 +78,11 @@ export function Chat() {
     }, [isConnected, clientId]);
 
     useEffect(() => {
-        if (bottomChatRef.current) {
-            bottomChatRef.current.scrollIntoView({ behavior: "smooth" });
+        if (viewportRef.current) {
+            viewportRef.current.scrollTo({
+                top: viewportRef.current.scrollHeight,
+                behavior: "smooth",
+            });
         }
     }, [chatMessages]);
 
@@ -91,7 +95,7 @@ export function Chat() {
                 </CardTitle>
             </CardHeader>
             <CardContent className='p-0 h-[400px] md:flex-1 md:min-h-0'>
-                <ScrollArea className='h-full p-4' >
+                <ScrollArea className='h-full p-4' viewportRef={viewportRef}>
                     <div className='flex flex-col space-y-3'>
                         {chatMessages.map((msg, index) => (
                             <div

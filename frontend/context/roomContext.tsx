@@ -41,6 +41,7 @@ interface GameRoomContext {
     joinRoom: (roomId: string, username?: string) => Promise<JoinGameResponse>;
     leaveRoom: () => Promise<boolean>;
     setCurrentTurn: Dispatch<SetStateAction<PlayerColor | null>>
+    resetRoom: () => void;
 }
 
 const gameRoomContext = createContext<GameRoomContext>({
@@ -75,6 +76,7 @@ const gameRoomContext = createContext<GameRoomContext>({
         return Promise.resolve(false);
     },
     setCurrentTurn: () => {},
+    resetRoom: () => {},
 });
 
 export const useGameRoom = () => {
@@ -310,6 +312,16 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const resetRoom = () => {
+        setRoomId(null);
+        setInRoom(false);
+        setIsSpectator(false);
+        setGameType(null);
+        setGameMode(null);
+        setCurrentPlayer(null);
+        setOpponentPlayer(null);
+    };
+
     return (
         <gameRoomContext.Provider
             value={{
@@ -327,6 +339,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                 joinRoom,
                 leaveRoom,
                 setCurrentTurn,
+                resetRoom,
             }}
         >
             {children}
