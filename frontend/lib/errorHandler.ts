@@ -53,6 +53,7 @@ export function getErrorInfo(error: WSError): ErrorInfo {
             "You are not an active player in this game.",
         [ErrorCode.ID_GENERATION_FAILED]:
             "Failed to create game room. Please try again.",
+        [ErrorCode.USERNAME_REQUIRED]: "Username is required to join a game.",
     };
 
     return {
