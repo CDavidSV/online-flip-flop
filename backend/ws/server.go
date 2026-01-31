@@ -272,8 +272,17 @@ func (s *Server) handleForfeit(socket *gws.Conn, msg IncomingMessage) {
 
 	if err := room.HandleForfeit(clientID); err != nil {
 		s.writeError(socket, err, msg.RequestID)
+		return
 	}
-	s.DeleteGameRoom(room)
+
+	if room.IsClosed() {
+		socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeAck, nil, msg.RequestID), func(err error) {
+			if err != nil {
+				s.logger.Error("Failed to send forfeit acknowledgment", "error", err)
+			}
+		})
+		s.DeleteGameRoom(room)
+	}
 }
 
 func (s *Server) handleGameState(socket *gws.Conn, msg IncomingMessage) {
