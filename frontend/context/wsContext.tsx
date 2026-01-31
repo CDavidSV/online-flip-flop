@@ -24,6 +24,7 @@ const websocketContext = createContext<WebsocketContextType>({
 const PING_INTERVAL = 60000; // Every minute
 const RECCONNECT_INTERVAL = 5000; // Every 5 seconds
 const CLIENT_ID_KEY = "ws_client_id";
+const wsURL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
 
 export const useWebSocket = () => useContext(websocketContext);
 
@@ -38,8 +39,6 @@ export const WebsocketProvider = ({
 
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [clientId, setClientId] = useState<string | null>(null);
-
-    const wsURL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
 
     // Establishes WebSocket connection on mount
     useEffect(() => {
@@ -162,9 +161,11 @@ export const WebsocketProvider = ({
             return;
         }
 
+        const ws_client_id = localStorage.getItem(CLIENT_ID_KEY);
+
         let url = `${wsURL}/ws`;
-        if (clientId) {
-            url += `?client_id=${clientId}`;
+        if (ws_client_id) {
+            url += `?client_id=${ws_client_id}`;
         }
         const ws = new WebSocket(url);
 

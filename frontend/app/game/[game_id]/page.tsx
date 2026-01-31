@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, Flag, ArrowLeft } from "lucide-react";
-import { PlayerColor } from "@/types/types";
+import { Copy, Check, Flag } from "lucide-react";
+import { GameMoveMsg, JoinGameResponse, PlayerColor } from "@/types/types";
 import { useParams, useRouter } from "next/navigation";
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
@@ -45,43 +45,38 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 
-
-const initialMoves = [
-    { id: 1, player: 1, notation: "e1-e4" },
-    { id: 2, player: 2, notation: "e5-e3" },
-    { id: 3, player: 1, notation: "a1-a4" },
-    { id: 4, player: 2, notation: "a7-a3" },
-];
-
 const usernameFormSchema = z.object({
     username: z.string().min(3, "Username must be at least 3 characters long"),
 });
 
 export default function GamePage() {
     const { game_id } = useParams<{ game_id: string }>();
-    const { isConnected } = useWebSocket();
+    const { isConnected, on } = useWebSocket();
     const router = useRouter();
     const {
-        username,
         inRoom,
         gameType,
         gameMode,
-        gameState,
+        gameStatus,
         joinRoom,
-        leaveRoom,
         currentPlayer,
         opponentPlayer,
     } = useGameRoom();
 
-    const [moves, setMoves] = useState(initialMoves);
+    const [moves, setMoves] = useState<
+        { id: number; player: number; notation: string }[]
+    >([]);
     const [copied, setCopied] = useState(false);
     const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
-    const [gameLoading, setGameLoading] = useState(false);
     const [joinLoading, setJoinLoading] = useState(false);
     const [showLoadingOverlay, setShowLoadingOverlay] = useState(true);
     const [loadingOverlayMsg, setLoadingOverlayMsg] = useState(
-        "Connecting to server..."
+        "Connecting to server...",
     );
+    const [attemptedRejoin, setAttemptedRejoin] = useState(false);
+    const [initialGameBoard, setInitialGameBoard] = useState<
+        string | undefined
+    >(undefined);
 
     const usernameform = useForm<z.infer<typeof usernameFormSchema>>({
         resolver: zodResolver(usernameFormSchema),
@@ -89,6 +84,56 @@ export default function GamePage() {
             username: "",
         },
     });
+
+    const handleRoomError = (error: any, formContext?: typeof usernameform) => {
+        if (!isWSError(error)) {
+            toast.error("An error occurred while joining the game");
+            return;
+        }
+
+        const errorInfo = getErrorInfo(error);
+
+        // Handle validation errors if form context provided
+        if (
+            formContext &&
+            isErrorCode(error, ErrorCode.VALIDATION_FAILED) &&
+            error.details
+        ) {
+            const validationErrors = error.details as Record<string, string>;
+
+            if (validationErrors.username) {
+                formContext.setError("username", {
+                    type: "manual",
+                    message: validationErrors.username,
+                });
+            }
+            if (validationErrors.room_id) {
+                toast.error(validationErrors.room_id);
+                setTimeout(() => router.push("/"), 2000);
+            }
+            return;
+        }
+
+        // Handle common error cases
+        switch (errorInfo.code) {
+            case ErrorCode.ROOM_NOT_FOUND:
+            case ErrorCode.ROOM_CLOSED:
+            case ErrorCode.GAME_ENDED:
+                toast.error(errorInfo.message);
+                router.push("/");
+                break;
+            default:
+                if (formContext) {
+                    formContext.setError("root", {
+                        type: "manual",
+                        message: errorInfo.message,
+                    });
+                } else {
+                    toast.error(errorInfo.message || "Failed to join game");
+                }
+                break;
+        }
+    };
 
     useEffect(() => {
         // Redirect to home if game_id is not provided
@@ -98,23 +143,67 @@ export default function GamePage() {
         }
 
         if (isConnected) {
-            // If roomId exists and user is already in the room
+            // If user is already in the room, hide loading overlay
             if (inRoom) {
                 setShowLoadingOverlay(false);
                 return;
-            } else {
+            }
+
+            // First, attempt to rejoin without username (for reconnecting players)
+            if (!attemptedRejoin) {
                 setLoadingOverlayMsg("Joining game...");
-            }
+                setAttemptedRejoin(true);
 
-            if (!username) {
-                setUsernameDialogOpen(true);
-                return;
+                joinRoom(game_id)
+                    .then((value: JoinGameResponse) => {
+                        // Successfully rejoined
+                        setShowLoadingOverlay(false);
+                        setInitialGameBoard(value.game_state.board);
+                    })
+                    .catch((error) => {
+                        if (
+                            isWSError(error) &&
+                            isErrorCode(error, ErrorCode.USERNAME_REQUIRED)
+                        ) {
+                            // Username required
+                            setUsernameDialogOpen(true);
+                        } else {
+                            setShowLoadingOverlay(false);
+                            handleRoomError(error);
+                        }
+                    });
             }
+        } else {
+            setShowLoadingOverlay(true);
+            setLoadingOverlayMsg("Connecting to server...");
         }
+    }, [isConnected, inRoom, game_id, router, attemptedRejoin]);
 
-        setShowLoadingOverlay(true);
-        setLoadingOverlayMsg("Connecting to server...");
-    }, [isConnected, username, inRoom, game_id, router]);
+    useEffect(() => {
+        if (!isConnected) return;
+
+        const cleanupMove = on("move", (payload: GameMoveMsg) => {
+            console.log("Received move payload:", payload);
+            if (payload.move.from && payload.move.to) {
+                setMoves((prevMoves) => {
+                    const moveNumber = prevMoves.length + 1;
+                    const player = moveNumber % 2 === 1 ? 1 : 2;
+                    return [
+                        ...prevMoves,
+                        {
+                            id: moveNumber,
+                            player: player,
+                            notation: `${payload.move.from}-${payload.move.to}`,
+                        },
+                    ];
+                });
+            }
+        });
+
+        return () => {
+            cleanupMove();
+        };
+    }, [isConnected, on]);
 
     const copyRoomId = () => {
         const textarea = document.createElement("textarea");
@@ -141,78 +230,17 @@ export default function GamePage() {
 
         joinRoom(game_id, data.username)
             .then(() => {
+                setShowLoadingOverlay(false);
                 setUsernameDialogOpen(false);
                 setJoinLoading(false);
             })
             .catch((error) => {
                 setJoinLoading(false);
-                if (isWSError(error)) {
-                    const errorInfo = getErrorInfo(error);
-
-                    if (
-                        isErrorCode(error, ErrorCode.VALIDATION_FAILED) &&
-                        error.details
-                    ) {
-                        const validationErrors = error.details as Record<
-                            string,
-                            string
-                        >;
-
-                        if (validationErrors.username) {
-                            usernameform.setError("username", {
-                                type: "manual",
-                                message: validationErrors.username,
-                            });
-                        }
-                        if (validationErrors.room_id) {
-                            toast.error(validationErrors.room_id);
-                            setTimeout(() => router.push("/"), 2000);
-                        }
-                        return;
-                    }
-
-                    switch (errorInfo.code) {
-                        case ErrorCode.ROOM_NOT_FOUND:
-                            toast.error(errorInfo.message);
-                            router.push("/");
-                            break;
-                        case ErrorCode.ROOM_CLOSED:
-                            toast.error(errorInfo.message);
-                            router.push("/");
-                            break;
-                        case ErrorCode.ALREADY_IN_GAME:
-                            usernameform.setError("root", {
-                                type: "manual",
-                                message: errorInfo.message,
-                            });
-                            break;
-                        default:
-                            usernameform.setError("root", {
-                                type: "manual",
-                                message: errorInfo.message,
-                            });
-                            break;
-                    }
-                } else {
-                    console.error("Error joining game:", error);
-                    usernameform.setError("root", {
-                        type: "manual",
-                        message: "An error occurred while joining the game.",
-                    });
-                }
+                handleRoomError(error, usernameform);
             });
     };
 
     const handleForfeit = () => {};
-
-    const handleLeaveGame = async () => {
-        const success = await leaveRoom();
-        if (success) {
-            router.push("/");
-        } else {
-            toast.error("Failed to leave the room.");
-        }
-    };
 
     return (
         <>
@@ -233,7 +261,7 @@ export default function GamePage() {
                     <Form {...usernameform}>
                         <form
                             onSubmit={usernameform.handleSubmit(
-                                usernameFormSubmit
+                                usernameFormSubmit,
                             )}
                             className='space-y-8'
                         >
@@ -258,7 +286,7 @@ export default function GamePage() {
                                     {usernameform.formState.errors.root.message}
                                 </div>
                             )}
-                            <DialogFooter className="flex-col sm:flex-col gap-2">
+                            <DialogFooter className='flex-col sm:flex-col gap-2'>
                                 <Button
                                     className='w-full'
                                     type='submit'
@@ -281,34 +309,32 @@ export default function GamePage() {
                 </DialogContent>
             </Dialog>
             <>
-                {gameLoading || !gameType || !gameMode ? (
+                {!gameType || !gameMode ? (
                     <div className='h-screen flex justify-center items-center'>
                         <FlipFlopLoader />
                     </div>
                 ) : (
                     <div className='md:flex flex-col md:flex-row md:h-screen min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 font-inter p-4 gap-4'>
                         {/* Main Game Area */}
-                        <div className='md:flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 flex-col items-center justify-between overflow-hidden relative'>
-                            <Button
-                                variant="outline"
-                                className="absolute top-4 left-4 gap-2"
-                                onClick={handleLeaveGame}
-                            >
-                                <ArrowLeft className="h-4 w-4" />
-                                Exit Game
-                            </Button>
-                            <div className='flex items-center text-lg font-semibold text-red-500 dark:text-red-400 mb-4'>
-                                {opponentPlayer?.username || "Waiting for opponent player to join..."}
+                        <div className='md:flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-10 flex-col items-center justify-between overflow-hidden relative'>
+                            <div className='flex items-center justify-center text-lg font-semibold text-red-500 dark:text-red-400 mb-4'>
+                                {gameStatus === "ongoing"
+                                    ? opponentPlayer?.username
+                                    : "Waiting for opponent player to join..."}
                             </div>
 
-                            <div className='flex items-center justify-center w-full max-w-[80vh] and max-h-[80vh] aspect-square bg-gray-200 dark:bg-gray-700 rounded-xl shadow-inner border-4 border-gray-300 dark:border-gray-600 '>
+                            <div className='flex items-center justify-center w-full max-w-[80vh] max-h-[80vh]'>
                                 <FlipFlop
                                     type={gameType}
-                                    side={PlayerColor.WHITE}
+                                    side={
+                                        currentPlayer?.color ||
+                                        PlayerColor.WHITE
+                                    }
+                                    initialBoardState={initialGameBoard}
                                 />
                             </div>
 
-                            <div className='flex items-center text-lg font-semibold text-blue-600 dark:text-blue-400 mt-4'>
+                            <div className='flex items-center justify-center text-lg font-semibold text-blue-600 dark:text-blue-400 mt-4'>
                                 {currentPlayer?.username || "PLAYER 1 (YOU)"}
                             </div>
                         </div>
@@ -319,11 +345,12 @@ export default function GamePage() {
                                     <CardTitle className='flex items-center justify-between'>
                                         Game Room
                                         <Badge variant='secondary'>
-                                            {gameState === "waiting_for_players"
+                                            {gameStatus ===
+                                            "waiting_for_players"
                                                 ? "Waiting For Players"
-                                                : gameState === "ongoing"
-                                                ? "Game In Progress"
-                                                : "Game Ended"}
+                                                : gameStatus === "ongoing"
+                                                  ? "Game In Progress"
+                                                  : "Game Ended"}
                                         </Badge>
                                     </CardTitle>
                                     <CardDescription className='text-sm'>

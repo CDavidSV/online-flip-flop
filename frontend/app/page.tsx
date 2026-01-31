@@ -1,7 +1,7 @@
 "use client";
 
 import MenuButton from "@/components/ui/menuButton";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,11 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useWebSocket } from "@/context/wsContext";
-import {
-    GameType,
-    GameMode,
-    ErrorCode,
-} from "@/types/types";
+import { GameType, GameMode, ErrorCode } from "@/types/types";
 import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
 import FlipFlopLoader from "@/components/FlipFlopLoader/FlipFlopLoader";
 import {
@@ -55,7 +51,7 @@ const joinGameFormSchema = z.object({
 export default function Home() {
     const router = useRouter();
     const { isConnected, clientId } = useWebSocket();
-    const { createGameRoom, joinRoom } = useGameRoom();
+    const { createGameRoom, joinRoom, leaveRoom } = useGameRoom();
 
     const [newGameDialogOpen, setNewGameDialogOpen] = useState(false);
     const [joinGameDialogOpen, setJoinGameDialogOpen] = useState(false);
@@ -86,8 +82,12 @@ export default function Home() {
         },
     });
 
+    useEffect(() => {
+        leaveRoom();
+    }, []);
+
     const createGameFormSubmit = (
-        data: z.infer<typeof createGameFormSchema>
+        data: z.infer<typeof createGameFormSchema>,
     ) => {
         setCreateLoading(true);
 
@@ -160,7 +160,10 @@ export default function Home() {
                         isErrorCode(error, ErrorCode.VALIDATION_FAILED) &&
                         error.details
                     ) {
-                        const validationErrors = error.details as Record<string,string>;
+                        const validationErrors = error.details as Record<
+                            string,
+                            string
+                        >;
 
                         if (validationErrors.username) {
                             joinGameform.setError("username", {
@@ -245,7 +248,7 @@ export default function Home() {
                     <Form {...createGameform}>
                         <form
                             onSubmit={createGameform.handleSubmit(
-                                createGameFormSubmit
+                                createGameFormSubmit,
                             )}
                             className='space-y-8'
                         >
@@ -306,7 +309,7 @@ export default function Home() {
                     <Form {...joinGameform}>
                         <form
                             onSubmit={joinGameform.handleSubmit(
-                                joinGameFormSubmit
+                                joinGameFormSubmit,
                             )}
                             className='space-y-8'
                         >
@@ -380,7 +383,7 @@ export default function Home() {
                     setApi={(api) => setCarouselApi(api)}
                 >
                     <CarouselContent>
-                        <CarouselItem className='flex justify-center flex-row gap-4'>
+                        <CarouselItem className='flex justify-center flex-row gap-4 flex-wrap'>
                             <MenuButton
                                 text='Create Game'
                                 onClick={() =>
@@ -397,7 +400,7 @@ export default function Home() {
                             />
                         </CarouselItem>
                         <CarouselItem className='flex justify-center items-center flex-col gap-4'>
-                            <div className='flex justify-center flex-row gap-4'>
+                            <div className='flex justify-center flex-row gap-4 flex-wrap'>
                                 <MenuButton
                                     text='Singleplayer'
                                     disabled
@@ -424,7 +427,7 @@ export default function Home() {
                             </Button>
                         </CarouselItem>
                         <CarouselItem className='flex justify-center items-center flex-col gap-4'>
-                            <div className='flex justify-center flex-row gap-4'>
+                            <div className='flex justify-center flex-row gap-4 flex-wrap'>
                                 <MenuButton
                                     text='FlipFlop 3x3'
                                     onClick={() => {

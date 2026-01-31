@@ -23,6 +23,7 @@ enum ErrorCode {
     VALIDATION_FAILED = "validation_failed",
     INVALID_REQUEST_PAYLOAD = "invalid_request_payload",
     ALREADY_IN_GAME = "already_in_game",
+    USERNAME_REQUIRED = "username_required",
     INVALID_MESSAGE_FORMAT = "invalid_message_format",
     INVALID_MESSAGE_PAYLOAD = "invalid_message_payload",
     ROOM_NOT_FOUND = "room_not_found",
@@ -39,7 +40,7 @@ enum ErrorCode {
 }
 
 // Incoming WebSocket message events
-type WSEventType = "player_left" | "start" | "move" | "chat" | "end" | "player_rejoined";
+type WSEventType = "player_left" | "start" | "move" | "chat" | "end" | "player_rejoined" | "joined";
 
 // Game state types
 type GameStatus = "waiting_for_players" | "ongoing" | "closed";
@@ -74,7 +75,7 @@ interface CreateGameResponse {
 
 interface JoinGameRequest {
     room_id: string;
-    username: string;
+    username?: string;
 }
 
 interface GameState {
@@ -110,10 +111,31 @@ interface Player {
 }
 
 interface FFPiece {
+    id: string;
     color: PlayerColor;
     side: PieceType;
     pos: [number, number];
     captured: boolean;
+    selected: boolean;
+}
+
+interface PlayerRejoinMsg {
+    player_id: string;
+}
+
+interface GameEndMsg {
+    reason: string;
+    winner: PlayerColor | null;
+}
+
+interface GameMoveMsg {
+    board: string;
+    color: PlayerColor;
+    move: {
+        from: string;
+        to: string;
+    }
+    player_id: string;
 }
 
 export { GameType, GameMode, PlayerColor, PieceType, ErrorCode };
@@ -129,5 +151,8 @@ export type {
     WSEventType,
     Player,
     FFPiece,
-    GameStatus
+    GameStatus,
+    PlayerRejoinMsg,
+    GameEndMsg,
+    GameMoveMsg
 };
