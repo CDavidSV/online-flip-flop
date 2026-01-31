@@ -303,6 +303,7 @@ export default function GamePage() {
                                         <FormLabel>Player Name</FormLabel>
                                         <FormControl>
                                             <Input
+                                                type='text'
                                                 placeholder='Enter your player name'
                                                 {...field}
                                             />

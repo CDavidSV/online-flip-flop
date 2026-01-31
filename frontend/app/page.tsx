@@ -272,6 +272,7 @@ export default function Home() {
                                         <FormLabel>Player Name</FormLabel>
                                         <FormControl>
                                             <Input
+                                                type='text'
                                                 placeholder='Enter your player name'
                                                 {...field}
                                             />
@@ -333,6 +334,7 @@ export default function Home() {
                                         <FormLabel>Player Name</FormLabel>
                                         <FormControl>
                                             <Input
+                                                type='text'
                                                 placeholder='Enter your player name'
                                                 {...field}
                                             />
@@ -349,6 +351,7 @@ export default function Home() {
                                         <FormLabel>Room ID</FormLabel>
                                         <FormControl>
                                             <Input
+                                                type='text'
                                                 placeholder='Enter the Room ID'
                                                 {...field}
                                             />
