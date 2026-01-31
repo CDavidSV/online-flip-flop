@@ -40,7 +40,8 @@ interface GameRoomContext {
     ) => Promise<string>;
     joinRoom: (roomId: string, username?: string) => Promise<JoinGameResponse>;
     leaveRoom: () => Promise<boolean>;
-    setCurrentTurn: Dispatch<SetStateAction<PlayerColor | null>>
+    forfeitGame: () => Promise<void>;
+    setCurrentTurn: Dispatch<SetStateAction<PlayerColor | null>>;
     resetRoom: () => void;
 }
 
@@ -75,6 +76,9 @@ const gameRoomContext = createContext<GameRoomContext>({
     },
     leaveRoom: () => {
         return Promise.resolve(false);
+    },
+    forfeitGame: () => {
+        return Promise.resolve();
     },
     setCurrentTurn: () => {},
     resetRoom: () => {},
@@ -313,6 +317,19 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const forfeitGame = async (): Promise<void> => {
+        if (!isConnected || !inRoom) {
+            throw new Error("Not connected or not in a room");
+        }
+
+        try {
+            await sendRequest("forfeit", null);
+        } catch (error) {
+            console.error("Failed to forfeit game:", error);
+            throw error;
+        }
+    };
+
     const resetRoom = () => {
         setRoomId(null);
         setInRoom(false);
@@ -339,6 +356,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                 createGameRoom,
                 joinRoom,
                 leaveRoom,
+                forfeitGame,
                 setCurrentTurn,
                 resetRoom,
             }}

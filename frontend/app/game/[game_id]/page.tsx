@@ -59,6 +59,7 @@ export default function GamePage() {
         gameMode,
         gameStatus,
         joinRoom,
+        forfeitGame,
         currentPlayer,
         opponentPlayer,
         currentTurn,
@@ -71,7 +72,9 @@ export default function GamePage() {
     const [copied, setCopied] = useState(false);
     const [gameEnded, setGameEnded] = useState(false);
     const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
+    const [forfeitDialogOpen, setForfeitDialogOpen] = useState(false);
     const [joinLoading, setJoinLoading] = useState(false);
+    const [forfeitLoading, setForfeitLoading] = useState(false);
     const [showLoadingOverlay, setShowLoadingOverlay] = useState(true);
     const [loadingOverlayMsg, setLoadingOverlayMsg] = useState(
         "Connecting to server...",
@@ -233,7 +236,7 @@ export default function GamePage() {
                 },
             ];
         });
-    }
+    };
 
     const rebuildMoveHistory = (joinGameResponse: JoinGameResponse) => {
         const moves: any = [];
@@ -249,7 +252,7 @@ export default function GamePage() {
         });
 
         setMoves(moves);
-    }
+    };
 
     useEffect(() => {
         if (!isConnected) return;
@@ -316,7 +319,28 @@ export default function GamePage() {
             });
     };
 
-    const handleForfeit = () => {};
+    const handleForfeit = () => {
+        setForfeitDialogOpen(true);
+    };
+
+    const confirmForfeit = () => {
+        setForfeitLoading(true);
+
+        forfeitGame()
+            .then(() => {
+                toast.success("You have forfeited the game");
+                setForfeitDialogOpen(false);
+            })
+            .catch((error: unknown) => {
+                setForfeitLoading(false);
+                if (isWSError(error)) {
+                    const errorInfo = getErrorInfo(error);
+                    toast.error(errorInfo.message || "Failed to forfeit game");
+                } else {
+                    toast.error("An error occurred while forfeiting the game");
+                }
+            });
+    };
 
     const handleMoveMade = (from: string, to: string) => {
         addMove(from, to, currentPlayer?.username || "Unknown");
@@ -389,6 +413,38 @@ export default function GamePage() {
                             </DialogFooter>
                         </form>
                     </Form>
+                </DialogContent>
+            </Dialog>
+            <Dialog
+                open={forfeitDialogOpen}
+                onOpenChange={setForfeitDialogOpen}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Forfeit Game</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to forfeit this game?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className='flex-col sm:flex-col gap-2'>
+                        <Button
+                            className='w-full'
+                            variant='destructive'
+                            onClick={confirmForfeit}
+                            disabled={forfeitLoading}
+                        >
+                            {forfeitLoading && <Spinner />}
+                            {forfeitLoading ? "Forfeiting..." : "Yes, Forfeit"}
+                        </Button>
+                        <Button
+                            className='w-full'
+                            variant='outline'
+                            onClick={() => setForfeitDialogOpen(false)}
+                            disabled={forfeitLoading}
+                        >
+                            Cancel
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
             <>
