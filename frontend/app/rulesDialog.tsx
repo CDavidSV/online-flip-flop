@@ -17,7 +17,7 @@ interface RulesDialogProps {
 export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className='max-h-[60vh] min-w-2xl overflow-y-auto'>
+            <DialogContent className='max-h-[60vh] overflow-y-auto'>
                 <DialogHeader>
                     <DialogTitle className='text-3xl font-bold'>
                         Game Rules

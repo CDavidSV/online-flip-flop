@@ -16,6 +16,16 @@ import { useWebSocket } from "@/context/wsContext";
 import { GameType, GameMode, ErrorCode } from "@/types/types";
 import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
 import FlipFlopLoader from "@/components/FlipFlopLoader/FlipFlopLoader";
+import Image from "next/image";
+import {
+    Sparkles,
+    DoorOpen,
+    BookOpen,
+    User,
+    Users2,
+    Grid3x3,
+    Grid2x2,
+} from "lucide-react";
 import {
     Carousel,
     CarouselContent,
@@ -83,7 +93,7 @@ export default function Home() {
     });
 
     useEffect(() => {
-        if(inRoom) {
+        if (inRoom) {
             leaveRoom();
         }
     }, []);
@@ -377,7 +387,13 @@ export default function Home() {
                         </p>
                     </div>
                 )}
-                <h1 className='text-7xl mb-8'>FlipFlop</h1>
+                <Image
+                    src="/assets/FlipFlop.svg"
+                    alt="FlipFlop"
+                    width={442}
+                    height={142}
+                    className="mb-6 p-6"
+                />
 
                 <Carousel
                     opts={{ watchDrag: false, duration: 10 }}
@@ -388,16 +404,19 @@ export default function Home() {
                         <CarouselItem className='flex justify-center flex-row gap-4 flex-wrap'>
                             <MenuButton
                                 text='Create Game'
+                                icon={<Sparkles className='size-8' />}
                                 onClick={() =>
                                     carouselApi && carouselApi.scrollNext()
                                 }
                             />
                             <MenuButton
                                 text='Join Game'
+                                icon={<DoorOpen className='size-8' />}
                                 onClick={() => setJoinGameDialogOpen(true)}
                             />
                             <MenuButton
                                 text='Rules'
+                                icon={<BookOpen className='size-8' />}
                                 onClick={() => setRulesDialogOpen(true)}
                             />
                         </CarouselItem>
@@ -405,6 +424,7 @@ export default function Home() {
                             <div className='flex justify-center flex-row gap-4 flex-wrap'>
                                 <MenuButton
                                     text='Singleplayer'
+                                    icon={<User className='size-8' />}
                                     disabled
                                     onClick={() => {
                                         setGameMode(GameMode.SINGLEPLAYER);
@@ -413,6 +433,7 @@ export default function Home() {
                                 />
                                 <MenuButton
                                     text='Multiplayer'
+                                    icon={<Users2 className='size-8' />}
                                     onClick={() => {
                                         setGameMode(GameMode.MULTIPLAYER);
                                         carouselApi && carouselApi.scrollNext();
@@ -432,6 +453,7 @@ export default function Home() {
                             <div className='flex justify-center flex-row gap-4 flex-wrap'>
                                 <MenuButton
                                     text='FlipFlop 3x3'
+                                    icon={<Grid3x3 className='size-8' />}
                                     onClick={() => {
                                         setGameType(GameType.FLIPFLOP_3x3);
                                         setNewGameDialogOpen(true);
@@ -439,6 +461,7 @@ export default function Home() {
                                 />
                                 <MenuButton
                                     text='FlipFlop 5x5'
+                                    icon={<Grid2x2 className='size-8' />}
                                     onClick={() => {
                                         setGameType(GameType.FLIPFLOP_5x5);
                                         setNewGameDialogOpen(true);
@@ -446,6 +469,7 @@ export default function Home() {
                                 />
                                 <MenuButton
                                     text='FlipFour'
+                                    icon={<Grid2x2 className='size-8' />}
                                     disabled
                                     onClick={() => {
                                         setGameType(GameType.FLIPFOUR);
