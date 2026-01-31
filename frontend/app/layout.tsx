@@ -4,6 +4,7 @@ import { GameRoomProvider } from "@/context/roomContext";
 import { WebsocketProvider } from "@/context/wsContext";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PreloadImages } from "@/components/PreloadImages";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,6 +41,7 @@ export default function RootLayout({
                 >
                     <WebsocketProvider>
                         <GameRoomProvider>{children}</GameRoomProvider>
+                        <PreloadImages />
                     </WebsocketProvider>
                     <Toaster position='top-right' />
                 </ThemeProvider>

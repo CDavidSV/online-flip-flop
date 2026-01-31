@@ -50,6 +50,7 @@ export function FlipFlop({
     const [gameBoard, setGameBoard] = useState<(FFPiece | null)[][]>([]);
     const [validMoves, setValidMoves] = useState<[number, number][]>([]);
     const [selectedPiece, setSelectedPiece] = useState<FFPiece | null>(null);
+    const [draggedPiece, setDraggedPiece] = useState<FFPiece | null>(null);
     const [showTurnIndicator, setShowTurnIndicator] = useState(false);
     const [isFadingOut, setIsFadingOut] = useState(false);
     const [showGameEnd, setShowGameEnd] = useState(false);
@@ -318,16 +319,84 @@ export function FlipFlop({
         setValidMoves(moves);
     };
 
+    const handleDragStart = (e: React.DragEvent, piece: FFPiece) => {
+        // Only allow dragging own pieces when game is ongoing and it's the player's turn
+        if (
+            piece.color !== side ||
+            gameStatus != "ongoing" ||
+            currentTurn !== side
+        ) {
+            e.preventDefault();
+            return;
+        }
+
+        setDraggedPiece(piece);
+        const moves = calculateValidMoves(piece);
+        setValidMoves(moves);
+
+        // Set drag image
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = "move";
+        }
+    };
+
+    const handleDragOver = (
+        e: React.DragEvent,
+        rowIndex: number,
+        colIndex: number,
+    ) => {
+        e.preventDefault();
+
+        if (!draggedPiece) return;
+
+        const isValidMove = validMoves.some(
+            ([r, c]) => r === rowIndex && c === colIndex,
+        );
+
+        if (isValidMove) {
+            e.dataTransfer.dropEffect = "move";
+        } else {
+            e.dataTransfer.dropEffect = "none";
+        }
+    };
+
+    const handleDrop = (
+        e: React.DragEvent,
+        rowIndex: number,
+        colIndex: number,
+    ) => {
+        e.preventDefault();
+
+        if (!draggedPiece) return;
+
+        const isValidMove = validMoves.some(
+            ([r, c]) => r === rowIndex && c === colIndex,
+        );
+
+        if (isValidMove) {
+            executeMove(true, [rowIndex, colIndex]);
+        }
+
+        setDraggedPiece(null);
+        setValidMoves([]);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedPiece(null);
+        setValidMoves([]);
+    };
+
     const executeMove = (isValidMove: boolean, targetPos: [number, number]) => {
-        if (!isValidMove || !selectedPiece) return;
+        const pieceToMove = selectedPiece || draggedPiece;
+        if (!isValidMove || !pieceToMove) return;
 
         let fromPos: string;
         let toPos: string;
         if (side === PlayerColor.WHITE) {
-            fromPos = `${cols[selectedPiece.pos[1]]}${Math.abs(selectedPiece.pos[0] - boardSize)}`;
+            fromPos = `${cols[pieceToMove.pos[1]]}${Math.abs(pieceToMove.pos[0] - boardSize)}`;
             toPos = `${cols[targetPos[1]]}${Math.abs(targetPos[0] - boardSize)}`;
         } else {
-            fromPos = `${cols[boardSize - 1 - selectedPiece.pos[1]]}${selectedPiece.pos[0] + 1}`;
+            fromPos = `${cols[boardSize - 1 - pieceToMove.pos[1]]}${pieceToMove.pos[0] + 1}`;
             toPos = `${cols[boardSize - 1 - targetPos[1]]}${targetPos[0] + 1}`;
         }
 
@@ -342,17 +411,18 @@ export function FlipFlop({
         );
 
         // Move the piece
-        newBoard[selectedPiece.pos[0]][selectedPiece.pos[1]] = null;
-        selectedPiece.pos = targetPos;
-        selectedPiece.side =
-            selectedPiece.side === PieceType.ROOK
+        newBoard[pieceToMove.pos[0]][pieceToMove.pos[1]] = null;
+        pieceToMove.pos = targetPos;
+        pieceToMove.side =
+            pieceToMove.side === PieceType.ROOK
                 ? PieceType.BISHOP
                 : PieceType.ROOK;
-        newBoard[targetPos[0]][targetPos[1]] = selectedPiece;
+        newBoard[targetPos[0]][targetPos[1]] = pieceToMove;
         setGameBoard(newBoard);
 
-        selectedPiece.selected = false;
+        pieceToMove.selected = false;
         setSelectedPiece(null);
+        setDraggedPiece(null);
         setValidMoves([]);
 
         const prevTurn = currentTurn;
@@ -545,6 +615,12 @@ export function FlipFlop({
                                         colIndex,
                                     ])
                                 }
+                                onDragOver={(e) =>
+                                    handleDragOver(e, rowIndex, colIndex)
+                                }
+                                onDrop={(e) =>
+                                    handleDrop(e, rowIndex, colIndex)
+                                }
                             >
                                 {isLastRow && (
                                     <p
@@ -579,13 +655,29 @@ export function FlipFlop({
                                 {piece && (
                                     <Image
                                         className={cn(
-                                            "p-2 md:p-3 cursor-pointer transition-transform duration-200 relative z-20",
+                                            "p-2 md:p-3 transition-transform duration-200 relative z-20",
                                             piece.selected
                                                 ? "scale-105"
                                                 : "scale-100",
                                             isValidMove ? "animate-pulse" : "",
+                                            draggedPiece?.id === piece.id
+                                                ? "animate-pulse cursor-grabbing"
+                                                : piece.color === side &&
+                                                    gameStatus === "ongoing" &&
+                                                    currentTurn === side
+                                                  ? "cursor-grab"
+                                                  : "cursor-pointer",
                                         )}
                                         onClick={() => selectPiece(piece)}
+                                        draggable={
+                                            piece.color === side &&
+                                            gameStatus === "ongoing" &&
+                                            currentTurn === side
+                                        }
+                                        onDragStart={(e) =>
+                                            handleDragStart(e, piece)
+                                        }
+                                        onDragEnd={handleDragEnd}
                                         src={`/assets/pieces/${
                                             piece.color === PlayerColor.WHITE
                                                 ? "white"
