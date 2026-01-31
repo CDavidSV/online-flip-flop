@@ -21,7 +21,7 @@ const websocketContext = createContext<WebsocketContextType>({
     off: () => {}
 });
 
-const PING_INTERVAL = 60000; // Every minute
+const PING_INTERVAL = 40000; // Every 40 seconds
 const RECCONNECT_INTERVAL = 5000; // Every 5 seconds
 const CLIENT_ID_KEY = "ws_client_id";
 const wsURL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
