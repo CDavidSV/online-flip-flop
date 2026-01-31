@@ -96,7 +96,7 @@ export default function Home() {
         if (inRoom) {
             leaveRoom();
         }
-    }, [leaveRoom]);
+    }, []);
 
     const createGameFormSubmit = (
         data: z.infer<typeof createGameFormSchema>,
