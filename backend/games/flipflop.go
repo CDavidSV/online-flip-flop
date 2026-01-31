@@ -386,6 +386,7 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 	opponent.validMoves = opponentValidMoves
 	if !canMove {
 		// Opponent has no valid moves
+		g.gameEnded = true
 		g.winner = g.currentTurn
 
 		return nil
