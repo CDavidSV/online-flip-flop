@@ -54,8 +54,9 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                                     <span className='font-semibold'>
                                         Goal space
                                     </span>{" "}
-                                    on your opponent's side of the playfield at
-                                    the end of your opponent's turn.
+                                    on your opponent&apos;s side of the
+                                    playfield at the end of your opponent&apos;s
+                                    turn.
                                 </li>
                                 <li>
                                     You also win when your opponent has no legal
@@ -88,18 +89,19 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                                     </span>
                                     . One side has an orthogonal{" "}
                                     <span className='font-semibold'>
-                                        "+" cross (Rook-like movement)
+                                        &quot;+&quot; cross (Rook-like movement)
                                     </span>
                                     , and the other has a diagonal{" "}
                                     <span className='font-semibold'>
-                                        "x" cross (Bishop-like movement)
+                                        &quot;x&quot; cross (Bishop-like
+                                        movement)
                                     </span>
                                     .
                                 </li>
                                 <li>
                                     Place a piece,{" "}
                                     <span className='font-semibold'>
-                                        "+" side-up (Rook-side)
+                                        &quot;+&quot; side-up (Rook-side)
                                     </span>
                                     , in each space of the row closest to you.
                                 </li>
@@ -119,7 +121,7 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                                     Players take turns moving one of their own
                                     pieces. A piece showing the{" "}
                                     <span className='font-semibold'>
-                                        "+" (Rook)
+                                        &quot;+&quot; (Rook)
                                     </span>{" "}
                                     moves{" "}
                                     <span className='font-semibold'>
@@ -127,7 +129,7 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                                     </span>
                                     , and a piece showing the{" "}
                                     <span className='font-semibold'>
-                                        "x" (Bishop)
+                                        &quot;x&quot; (Bishop)
                                     </span>{" "}
                                     moves{" "}
                                     <span className='font-semibold'>
@@ -160,11 +162,11 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                                     <span className='font-semibold'>
                                         Capturing:
                                     </span>{" "}
-                                    You can capture an opponent's piece{" "}
+                                    You can capture an opponent&apos;s piece{" "}
                                     <span className='font-semibold'>
                                         only if it is in one of the Goal spaces
                                     </span>{" "}
-                                    (yours or your opponent's). Capture by
+                                    (yours or your opponent&apos;s). Capture by
                                     moving onto the Goal space it occupies and
                                     removing the captured piece from the board.
                                 </li>
@@ -238,8 +240,8 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                                     </span>
                                     . You can choose whether to place it{" "}
                                     <span className='font-semibold'>
-                                        "+" side-up (Rook-side) or "x" side-up
-                                        (Bishop-side)
+                                        &quot;+&quot; side-up (Rook-side) or
+                                        &quot;x&quot; side-up (Bishop-side)
                                     </span>
                                     .
                                 </li>
@@ -249,7 +251,7 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                                     </span>{" "}
                                     A piece showing the{" "}
                                     <span className='font-semibold'>
-                                        "+" (Rook)
+                                        &quot;+&quot; (Rook)
                                     </span>{" "}
                                     moves{" "}
                                     <span className='font-semibold'>
@@ -257,7 +259,7 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                                     </span>
                                     , and a piece showing the{" "}
                                     <span className='font-semibold'>
-                                        "x" (Bishop)
+                                        &quot;x&quot; (Bishop)
                                     </span>{" "}
                                     moves{" "}
                                     <span className='font-semibold'>

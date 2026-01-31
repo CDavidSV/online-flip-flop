@@ -60,7 +60,7 @@ const joinGameFormSchema = z.object({
 
 export default function Home() {
     const router = useRouter();
-    const { isConnected, clientId } = useWebSocket();
+    const { isConnected } = useWebSocket();
     const { createGameRoom, joinRoom, leaveRoom, inRoom } = useGameRoom();
 
     const [newGameDialogOpen, setNewGameDialogOpen] = useState(false);
@@ -96,7 +96,7 @@ export default function Home() {
         if (inRoom) {
             leaveRoom();
         }
-    }, []);
+    }, [inRoom, leaveRoom]);
 
     const createGameFormSubmit = (
         data: z.infer<typeof createGameFormSchema>,
@@ -428,7 +428,7 @@ export default function Home() {
                                     disabled
                                     onClick={() => {
                                         setGameMode(GameMode.SINGLEPLAYER);
-                                        carouselApi && carouselApi.scrollNext();
+                                        carouselApi?.scrollNext();
                                     }}
                                 />
                                 <MenuButton
@@ -436,7 +436,7 @@ export default function Home() {
                                     icon={<Users2 className='size-8' />}
                                     onClick={() => {
                                         setGameMode(GameMode.MULTIPLAYER);
-                                        carouselApi && carouselApi.scrollNext();
+                                        carouselApi?.scrollNext();
                                     }}
                                 />
                             </div>

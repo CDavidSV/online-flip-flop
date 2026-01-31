@@ -75,7 +75,7 @@ export function Chat() {
             const cleanup = on("chat", onMessageReceived);
             return cleanup;
         }
-    }, [isConnected, clientId]);
+    }, [isConnected, clientId, on]);
 
     useEffect(() => {
         if (viewportRef.current) {

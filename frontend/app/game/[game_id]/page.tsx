@@ -88,7 +88,7 @@ export default function GamePage() {
         },
     });
 
-    const handleRoomError = (error: any, formContext?: typeof usernameform) => {
+    const handleRoomError = (error: unknown, formContext?: typeof usernameform) => {
         if (!isWSError(error)) {
             toast.error("An error occurred while joining the game");
             return;
@@ -182,7 +182,7 @@ export default function GamePage() {
             setShowLoadingOverlay(true);
             setLoadingOverlayMsg("Connecting to server...");
         }
-    }, [isConnected, inRoom, game_id, router, attemptedRejoin, gameEnded]);
+    }, [isConnected, inRoom, game_id, router, attemptedRejoin, gameEnded, joinRoom]);
 
     useEffect(() => {
         if (gameStatus === "closed") {

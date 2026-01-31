@@ -7,9 +7,11 @@ import {
     PlayerColor,
     PieceType,
     GameEndMsg,
+    GameMoveMsg,
 } from "@/types/types";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export interface BoardProps {
     type: GameType;
@@ -41,7 +43,8 @@ export function FlipFlop({
         goals = [2, 22];
     }
 
-    const { gameStatus, currentTurn, setCurrentTurn, resetRoom } = useGameRoom();
+    const { gameStatus, currentTurn, setCurrentTurn, resetRoom } =
+        useGameRoom();
     const { sendRequest, on } = useWebSocket();
 
     const [gameBoard, setGameBoard] = useState<(FFPiece | null)[][]>([]);
@@ -58,7 +61,7 @@ export function FlipFlop({
     const boardSize = type === GameType.FLIPFLOP_3x3 ? 3 : 5;
 
     useEffect(() => {
-        const cleanupMove = on("move", (payload: any) => {
+        const cleanupMove = on("move", (payload: GameMoveMsg) => {
             if (payload.board) {
                 const updatedBoard = parseBoardState(payload.board);
                 setGameBoard(updatedBoard);
@@ -348,6 +351,7 @@ export function FlipFlop({
         newBoard[targetPos[0]][targetPos[1]] = selectedPiece;
         setGameBoard(newBoard);
 
+        selectedPiece.selected = false;
         setSelectedPiece(null);
         setValidMoves([]);
 
@@ -365,7 +369,7 @@ export function FlipFlop({
         sendRequest("move", {
             from: fromPos,
             to: toPos,
-        }).catch((reason: any) => {
+        }).catch((reason: unknown) => {
             console.error("Move failed:", reason);
 
             // Reset the board to the previous state
@@ -541,15 +545,13 @@ export function FlipFlop({
                                     </div>
                                 )}
                                 {piece && (
-                                    <img
+                                    <Image
                                         className={cn(
-                                            "w-full h-full object-contain cursor-pointer transition-transform duration-200 relative z-20",
+                                            "p-2 md:p-3 cursor-pointer transition-transform duration-200 relative z-20",
                                             piece.selected
                                                 ? "scale-105"
                                                 : "scale-100",
-                                            isValidMove
-                                                ? "animate-pulse"
-                                                : "",
+                                            isValidMove ? "animate-pulse" : "",
                                         )}
                                         onClick={() => selectPiece(piece)}
                                         src={`/assets/pieces/${
@@ -570,6 +572,8 @@ export function FlipFlop({
                                                 ? "Rook"
                                                 : "Bishop"
                                         }`}
+                                        fill
+                                        style={{ objectFit: "contain" }}
                                     />
                                 )}
                             </div>
