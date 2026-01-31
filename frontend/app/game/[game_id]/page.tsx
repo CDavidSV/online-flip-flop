@@ -61,6 +61,8 @@ export default function GamePage() {
         joinRoom,
         currentPlayer,
         opponentPlayer,
+        currentTurn,
+        setCurrentTurn,
     } = useGameRoom();
 
     const [moves, setMoves] = useState<
@@ -78,6 +80,7 @@ export default function GamePage() {
     const [initialGameBoard, setInitialGameBoard] = useState<
         string | undefined
     >(undefined);
+    const [isMyTurn, setIsMyTurn] = useState<boolean>(false);
     const moveHistoryEndRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -88,7 +91,10 @@ export default function GamePage() {
         },
     });
 
-    const handleRoomError = (error: unknown, formContext?: typeof usernameform) => {
+    const handleRoomError = (
+        error: unknown,
+        formContext?: typeof usernameform,
+    ) => {
         if (!isWSError(error)) {
             toast.error("An error occurred while joining the game");
             return;
@@ -164,6 +170,15 @@ export default function GamePage() {
                         // Successfully rejoined
                         setShowLoadingOverlay(false);
                         setInitialGameBoard(value.game_state.board);
+
+                        // Set initial turn state
+                        const myPlayer = value.game_state.players.find(
+                            (p) => p.id === currentPlayer?.id,
+                        );
+                        const myTurn = myPlayer
+                            ? value.game_state.current_turn === myPlayer.color
+                            : false;
+                        setIsMyTurn(myTurn);
                     })
                     .catch((error) => {
                         if (
@@ -182,13 +197,28 @@ export default function GamePage() {
             setShowLoadingOverlay(true);
             setLoadingOverlayMsg("Connecting to server...");
         }
-    }, [isConnected, inRoom, game_id, router, attemptedRejoin, gameEnded, joinRoom]);
+    }, [
+        isConnected,
+        inRoom,
+        game_id,
+        router,
+        attemptedRejoin,
+        gameEnded,
+        joinRoom,
+    ]);
 
     useEffect(() => {
         if (gameStatus === "closed") {
             setGameEnded(true);
         }
     }, [gameStatus]);
+
+    // Sync isMyTurn with currentTurn from context
+    useEffect(() => {
+        if (currentTurn !== null && currentPlayer?.color !== null) {
+            setIsMyTurn(currentTurn === currentPlayer?.color);
+        }
+    }, [currentTurn, currentPlayer]);
 
     useEffect(() => {
         if (viewportRef.current) {
@@ -201,7 +231,7 @@ export default function GamePage() {
 
     const addMove = (from: string, to: string, playerName: string) => {
         setMoves((prevMoves) => {
-            const moveNumber = prevMoves.length + 2;
+            const moveNumber = prevMoves.length + 1;
             return [
                 ...prevMoves,
                 {
@@ -223,13 +253,25 @@ export default function GamePage() {
                     payload.move.to,
                     opponentPlayer?.username || "Unknown",
                 );
+
+                // Update current turn from server
+                // After opponent's move, it's now your turn
+                setIsMyTurn(currentPlayer?.color !== payload.color);
             }
+        });
+
+        const cleanupStart = on("start", () => {
+            // Game has started, check if it's your turn
+            const myTurn = currentPlayer?.color === PlayerColor.WHITE;
+            setIsMyTurn(myTurn);
+            setCurrentTurn(PlayerColor.WHITE); // White always starts
         });
 
         return () => {
             cleanupMove();
+            cleanupStart();
         };
-    }, [isConnected, on, opponentPlayer]);
+    }, [isConnected, on, opponentPlayer, currentPlayer]);
 
     const copyRoomId = () => {
         const textarea = document.createElement("textarea");
@@ -270,6 +312,8 @@ export default function GamePage() {
 
     const handleMoveMade = (from: string, to: string) => {
         addMove(from, to, currentPlayer?.username || "Unknown");
+
+        setIsMyTurn(false);
     };
 
     return (
@@ -347,7 +391,23 @@ export default function GamePage() {
                 ) : (
                     <div className='md:flex flex-col md:flex-row md:h-screen min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 font-inter p-4 gap-4'>
                         {/* Main Game Area */}
-                        <div className='md:flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-10 flex-col items-center justify-between overflow-hidden relative'>
+                        <div className='flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-9 md:p-10 flex-col items-center justify-between overflow-hidden relative'>
+                            {gameStatus === "ongoing" && (
+                                <div className='absolute top-3 left-3 md:top-4 md:left-4'>
+                                    <div
+                                        className={`px-2 py-1 md:px-4 md:py-2 rounded-md md:rounded-lg font-semibold text-xs md:text-sm transition-all ${
+                                            isMyTurn
+                                                ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 animate-pulse"
+                                                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                                        }`}
+                                    >
+                                        {isMyTurn
+                                            ? "Your Turn"
+                                            : "Opponent's Turn"}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className='flex items-center justify-center text-lg font-semibold text-red-500 dark:text-red-400 mb-4'>
                                 {gameStatus === "ongoing"
                                     ? opponentPlayer?.username
@@ -431,7 +491,10 @@ export default function GamePage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className='h-48 p-0'>
-                                    <ScrollArea className='h-full rounded-md' viewportRef={viewportRef}>
+                                    <ScrollArea
+                                        className='h-full rounded-md'
+                                        viewportRef={viewportRef}
+                                    >
                                         <div className='px-4'>
                                             {moves.map((move) => (
                                                 <div
@@ -444,8 +507,7 @@ export default function GamePage() {
                                                     }`}
                                                 >
                                                     <span className='text-sm font-medium w-1/4'>
-                                                        {Math.ceil(move.id / 2)}
-                                                        .
+                                                        {move.id}.
                                                         <span className='ml-1 text-xs'>
                                                             {move.player}
                                                         </span>

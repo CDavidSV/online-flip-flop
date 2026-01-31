@@ -1,6 +1,9 @@
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
     FFPiece,
     GameType,
@@ -9,9 +12,6 @@ import {
     GameEndMsg,
     GameMoveMsg,
 } from "@/types/types";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
 
 export interface BoardProps {
     type: GameType;
@@ -516,6 +516,16 @@ export function FlipFlop({
                         const isValidMove = validMoves.some(
                             ([r, c]) => r === rowIndex && c === colIndex,
                         );
+                        const isLastRow = rowIndex === boardSize - 1;
+                        const isFirstCol = colIndex === 0;
+                        const cellColor =
+                            index % 2 === 0
+                                ? colors.squarePrimaryColor
+                                : colors.squareSecondaryColor;
+                        const labelColor =
+                            index % 2 === 0
+                                ? colors.squareSecondaryColor
+                                : colors.squarePrimaryColor;
 
                         return (
                             <div
@@ -527,10 +537,7 @@ export function FlipFlop({
                                         : "",
                                 )}
                                 style={{
-                                    background:
-                                        index % 2 === 0
-                                            ? colors.squarePrimaryColor
-                                            : colors.squareSecondaryColor,
+                                    background: cellColor,
                                 }}
                                 onClick={() =>
                                     executeMove(isValidMove, [
@@ -539,6 +546,31 @@ export function FlipFlop({
                                     ])
                                 }
                             >
+                                {isLastRow && (
+                                    <p
+                                        className='absolute bottom-0.5 right-1 text-xs md:text-sm font-bold pointer-events-none'
+                                        style={{ color: labelColor }}
+                                    >
+                                        {side === PlayerColor.WHITE
+                                            ? cols[colIndex]
+                                            : cols[boardSize - 1 - colIndex]}
+                                    </p>
+                                )}
+                                {isFirstCol && (
+                                    <p
+                                        className='absolute top-0.5 left-1 text-xs md:text-sm font-bold pointer-events-none'
+                                        style={{ color: labelColor }}
+                                    >
+                                        {side === PlayerColor.WHITE
+                                            ? Math.abs(rowIndex - boardSize)
+                                            : Math.abs(
+                                                  boardSize -
+                                                      1 -
+                                                      rowIndex -
+                                                      boardSize,
+                                              )}
+                                    </p>
+                                )}
                                 {isValidMove && (
                                     <div className='absolute w-full h-full flex items-center justify-center cursor-pointer'>
                                         <div className='w-1/4 h-1/4 bg-green-500 rounded-full opacity-50 pointer-events-none z-10' />
@@ -580,30 +612,6 @@ export function FlipFlop({
                         );
                     }),
                 )}
-            </div>
-            <div className='absolute flex flex-row justify-around h-full w-full'>
-                {Array.from({ length: boardSize }, (_, i) => (
-                    <p
-                        key={i}
-                        className='text-lg font-bold text-muted-foreground md:text-2xl'
-                    >
-                        {side === PlayerColor.WHITE
-                            ? cols[i]
-                            : cols[boardSize - 1 - i]}
-                    </p>
-                ))}
-            </div>
-            <div className='absolute flex flex-col justify-around h-full -left-6 top-0'>
-                {Array.from({ length: boardSize }, (_, i) => (
-                    <p
-                        key={i}
-                        className='text-lg font-bold text-muted-foreground md:text-2xl'
-                    >
-                        {side === PlayerColor.WHITE
-                            ? Math.abs(i - boardSize)
-                            : Math.abs(boardSize - 1 - i - boardSize)}
-                    </p>
-                ))}
             </div>
         </div>
     );
