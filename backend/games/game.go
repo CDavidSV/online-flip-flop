@@ -25,9 +25,15 @@ type BaseMove struct {
 	To   string `json:"to"`
 }
 
+type MoveSnapshot struct {
+	PlayerID string `json:"player_id"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+}
+
 type Game interface {
 	// Applies a move to the game state. The game implementation should validate the move and return an error if it's illegal.
-	ApplyMove(moveData json.RawMessage) error
+	ApplyMove(moveData json.RawMessage, playerID string) error
 
 	// Returns which player's turn it is.
 	CurrentTurn() PlayerSide
@@ -40,6 +46,9 @@ type Game interface {
 
 	// Returns the winner of the game. If the game is a draw or is ongoing, it should return -1.
 	GetWinner() PlayerSide
+
+	// Returns the history of moves made in the game.
+	GetMoveHistory() []MoveSnapshot
 }
 
 // Factory function to create a new game instance based on the specified game type.

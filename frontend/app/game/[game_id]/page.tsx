@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Flag } from "lucide-react";
-import { GameMoveMsg, JoinGameResponse, PlayerColor } from "@/types/types";
+import { GameMoveMsg, JoinGameResponse, MoveSnapshot, PlayerColor } from "@/types/types";
 import { useParams, useRouter } from "next/navigation";
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
@@ -170,15 +170,7 @@ export default function GamePage() {
                         // Successfully rejoined
                         setShowLoadingOverlay(false);
                         setInitialGameBoard(value.game_state.board);
-
-                        // Set initial turn state
-                        const myPlayer = value.game_state.players.find(
-                            (p) => p.id === currentPlayer?.id,
-                        );
-                        const myTurn = myPlayer
-                            ? value.game_state.current_turn === myPlayer.color
-                            : false;
-                        setIsMyTurn(myTurn);
+                        rebuildMoveHistory(value);
                     })
                     .catch((error) => {
                         if (
@@ -241,7 +233,23 @@ export default function GamePage() {
                 },
             ];
         });
-    };
+    }
+
+    const rebuildMoveHistory = (joinGameResponse: JoinGameResponse) => {
+        const moves: any = [];
+        joinGameResponse.move_history.forEach((move) => {
+            const player = joinGameResponse.game_state.players.find(
+                (p) => p.id === move.player_id,
+            )?.username;
+            moves.push({
+                id: moves.length + 1,
+                player: player,
+                notation: `${move.from}-${move.to}`,
+            });
+        });
+
+        setMoves(moves);
+    }
 
     useEffect(() => {
         if (!isConnected) return;
@@ -297,7 +305,7 @@ export default function GamePage() {
         setJoinLoading(true);
 
         joinRoom(game_id, data.username)
-            .then(() => {
+            .then((value: JoinGameResponse) => {
                 setShowLoadingOverlay(false);
                 setUsernameDialogOpen(false);
                 setJoinLoading(false);

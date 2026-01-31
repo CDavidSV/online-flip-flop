@@ -91,6 +91,7 @@ interface JoinGameResponse {
     game_type: GameType;
     game_mode: GameMode;
     game_state: GameState;
+    move_history: MoveSnapshot[];
 }
 
 interface MessageSendRequest {
@@ -138,6 +139,12 @@ interface GameMoveMsg {
     player_id: string;
 }
 
+interface MoveSnapshot {
+    player_id: string;
+    from: string;
+    to: string;
+}
+
 export { GameType, GameMode, PlayerColor, PieceType, ErrorCode };
 export type {
     CreateGameResponse,
@@ -154,5 +161,6 @@ export type {
     GameStatus,
     PlayerRejoinMsg,
     GameEndMsg,
-    GameMoveMsg
+    GameMoveMsg,
+    MoveSnapshot,
 };

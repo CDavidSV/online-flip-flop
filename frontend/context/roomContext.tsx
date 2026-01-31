@@ -70,6 +70,7 @@ const gameRoomContext = createContext<GameRoomContext>({
                 status: "waiting_for_players",
                 winner: null,
             },
+            move_history: [],
         };
     },
     leaveRoom: () => {

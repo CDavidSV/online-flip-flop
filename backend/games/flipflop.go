@@ -50,6 +50,7 @@ type FlipFlop struct {
 	winner         PlayerSide
 	positionCounts map[string]int
 	boardHistory   []string
+	moveHistory    []MoveSnapshot
 }
 
 type FlipFlopMove struct {
@@ -284,7 +285,7 @@ func (g *FlipFlop) changeTurn() {
 	}
 }
 
-func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
+func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	// Check if the game has already ended
 	if g.gameEnded {
 		return apperrors.ErrGameEnded
@@ -370,6 +371,11 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 	// Take a snapshot of the new board state
 	fen := encodeBoardState(g.board, g.currentTurn)
 	g.boardHistory = append(g.boardHistory, fen)
+	g.moveHistory = append(g.moveHistory, MoveSnapshot{
+		PlayerID: playerID,
+		From:     moveData.From,
+		To:       moveData.To,
+	})
 
 	// Check for game end conditions
 	// After the move, check if the current player has any pieces in their goal
@@ -418,6 +424,10 @@ func (g *FlipFlop) IsGameEnded() bool {
 
 func (g *FlipFlop) GetWinner() PlayerSide {
 	return g.winner
+}
+
+func (g *FlipFlop) GetMoveHistory() []MoveSnapshot {
+	return g.moveHistory
 }
 
 func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {

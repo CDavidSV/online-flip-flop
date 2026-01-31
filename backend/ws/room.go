@@ -321,7 +321,7 @@ func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawM
 		return -1, apperrors.ErrNotYourTurn
 	}
 
-	err := gr.Game.ApplyMove(movePayload)
+	err := gr.Game.ApplyMove(movePayload, clientID)
 	if err != nil {
 		return -1, err
 	}
