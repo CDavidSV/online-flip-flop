@@ -17,13 +17,7 @@ import { GameType, GameMode, ErrorCode } from "@/types/types";
 import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
 import FlipFlopLoader from "@/components/FlipFlopLoader/FlipFlopLoader";
 import Image from "next/image";
-import {
-    Sparkles,
-    DoorOpen,
-    BookOpen,
-    User,
-    Users2,
-} from "lucide-react";
+import { Sparkles, DoorOpen, BookOpen, User, Users2 } from "lucide-react";
 import {
     Carousel,
     CarouselContent,
@@ -379,9 +373,9 @@ export default function Home() {
             </Dialog>
 
             {/* Main Menu */}
-            <main className='min-h-screen flex flex-col items-center justify-center'>
+            <main className='h-full w-full flex flex-col items-center justify-center'>
                 {!isConnected && (
-                    <div className='absolute w-full h-full bg-background z-50 flex flex-col justify-center items-center gap-2'>
+                    <div className='fixed inset-0 bg-background z-50 flex flex-col justify-center items-center gap-2'>
                         <FlipFlopLoader />
                         <p className='text-muted-foreground'>
                             Connecting to server...
@@ -389,11 +383,11 @@ export default function Home() {
                     </div>
                 )}
                 <Image
-                    src="/assets/FlipFlop.svg"
-                    alt="FlipFlop"
+                    src='/assets/FlipFlop.svg'
+                    alt='FlipFlop'
                     width={442}
                     height={142}
-                    className="mb-6 p-6"
+                    className='mb-6 p-6'
                 />
 
                 <Carousel
