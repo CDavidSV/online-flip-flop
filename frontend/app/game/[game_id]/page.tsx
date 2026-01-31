@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Flag } from "lucide-react";
-import { GameMoveMsg, JoinGameResponse, MoveSnapshot, PlayerColor } from "@/types/types";
+import { GameMoveMsg, JoinGameResponse, PlayerColor } from "@/types/types";
 import { useParams, useRouter } from "next/navigation";
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";

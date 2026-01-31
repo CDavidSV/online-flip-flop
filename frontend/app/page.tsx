@@ -23,8 +23,6 @@ import {
     BookOpen,
     User,
     Users2,
-    Grid3x3,
-    Grid2x2,
 } from "lucide-react";
 import {
     Carousel,
@@ -456,7 +454,6 @@ export default function Home() {
                             <div className='flex justify-center flex-row gap-4 flex-wrap'>
                                 <MenuButton
                                     text='FlipFlop 3x3'
-                                    icon={<Grid3x3 className='size-8' />}
                                     onClick={() => {
                                         setGameType(GameType.FLIPFLOP_3x3);
                                         setNewGameDialogOpen(true);
@@ -464,7 +461,6 @@ export default function Home() {
                                 />
                                 <MenuButton
                                     text='FlipFlop 5x5'
-                                    icon={<Grid2x2 className='size-8' />}
                                     onClick={() => {
                                         setGameType(GameType.FLIPFLOP_5x5);
                                         setNewGameDialogOpen(true);
@@ -472,7 +468,6 @@ export default function Home() {
                                 />
                                 <MenuButton
                                     text='FlipFour'
-                                    icon={<Grid2x2 className='size-8' />}
                                     disabled
                                     onClick={() => {
                                         setGameType(GameType.FLIPFOUR);
