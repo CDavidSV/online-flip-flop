@@ -388,6 +388,7 @@ export default function Home() {
                     width={442}
                     height={142}
                     className='mb-6 p-6'
+                    priority
                 />
 
                 <Carousel

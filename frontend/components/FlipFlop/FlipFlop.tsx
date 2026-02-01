@@ -698,6 +698,7 @@ export function FlipFlop({
                                         }`}
                                         fill
                                         style={{ objectFit: "contain" }}
+                                        priority
                                     />
                                 )}
                             </div>
