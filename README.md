@@ -1,6 +1,7 @@
 # Online Flip Flop
 
 An online multiplayer implementation of FlipFlop, the abstract strategy board game by Masahiro Nakajima.
+<img width="1721" height="1129" alt="FlipFlop_Example" src="https://github.com/user-attachments/assets/fd6768d9-cc92-41c3-9e43-210384f00d05" />
 
 ## Play Now
 
