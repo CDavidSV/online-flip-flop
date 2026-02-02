@@ -43,7 +43,7 @@ export function FlipFlop({
         goals = [2, 22];
     }
 
-    const { gameStatus, currentTurn, setCurrentTurn, resetRoom } =
+    const { gameStatus, currentTurn, setCurrentTurn, resetState, isSpectator } =
         useGameRoom();
     const { sendRequest, on } = useWebSocket();
 
@@ -295,6 +295,8 @@ export function FlipFlop({
     };
 
     const selectPiece = (piece: FFPiece) => {
+        if (isSpectator) return;
+
         // Only allow selecting own pieces when game is ongoing and it's the player's turn
         if (
             piece.color !== side ||
@@ -451,7 +453,7 @@ export function FlipFlop({
     };
 
     const handleReturnToMenu = () => {
-        resetRoom();
+        resetState();
         router.push("/");
     };
 
@@ -484,9 +486,11 @@ export function FlipFlop({
                             )}
                         />
                         <span className='font-bold text-lg tracking-wide'>
-                            {currentTurn === side
-                                ? "Your Turn"
-                                : `${currentTurn === PlayerColor.WHITE ? "White" : "Black"}'s Turn`}
+                            {isSpectator
+                                ? `${currentTurn === PlayerColor.WHITE ? "White" : "Black"}'s Turn`
+                                : currentTurn === side
+                                  ? "Your Turn"
+                                  : `${currentTurn === PlayerColor.WHITE ? "White" : "Black"}'s Turn`}
                         </span>
                         <div
                             className={cn(
@@ -624,7 +628,7 @@ export function FlipFlop({
                             >
                                 {isLastRow && (
                                     <p
-                                        className='absolute bottom-0.5 right-1 text-xs md:text-sm font-bold pointer-events-none'
+                                        className='absolute bottom-0.5 right-1 text-xs md:text-sm font-bold pointer-events-none select-none'
                                         style={{ color: labelColor }}
                                     >
                                         {side === PlayerColor.WHITE
@@ -634,7 +638,7 @@ export function FlipFlop({
                                 )}
                                 {isFirstCol && (
                                     <p
-                                        className='absolute top-0.5 left-1 text-xs md:text-sm font-bold pointer-events-none'
+                                        className='absolute top-0.5 left-1 text-xs md:text-sm font-bold pointer-events-none select-none'
                                         style={{ color: labelColor }}
                                     >
                                         {side === PlayerColor.WHITE
@@ -655,7 +659,7 @@ export function FlipFlop({
                                 {piece && (
                                     <Image
                                         className={cn(
-                                            "p-2 md:p-3 transition-transform duration-200 relative z-20",
+                                            "p-2 md:p-3 transition-transform duration-200 relative z-20 select-none",
                                             piece.selected
                                                 ? "scale-105"
                                                 : "scale-100",
@@ -664,15 +668,17 @@ export function FlipFlop({
                                                 ? "animate-pulse cursor-grabbing"
                                                 : piece.color === side &&
                                                     gameStatus === "ongoing" &&
-                                                    currentTurn === side
+                                                    currentTurn === side &&
+                                                    !isSpectator
                                                   ? "cursor-grab"
-                                                  : "cursor-pointer",
+                                                  : "cursor-default",
                                         )}
                                         onClick={() => selectPiece(piece)}
                                         draggable={
                                             piece.color === side &&
                                             gameStatus === "ongoing" &&
-                                            currentTurn === side
+                                            currentTurn === side &&
+                                            !isSpectator
                                         }
                                         onDragStart={(e) =>
                                             handleDragStart(e, piece)

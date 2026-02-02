@@ -53,7 +53,8 @@ const joinGameFormSchema = z.object({
 export default function Home() {
     const router = useRouter();
     const { isConnected } = useWebSocket();
-    const { createGameRoom, joinRoom, leaveRoom, inRoom } = useGameRoom();
+    const { createGameRoom, joinRoom, leaveRoom, inRoom, username } =
+        useGameRoom();
 
     const [newGameDialogOpen, setNewGameDialogOpen] = useState(false);
     const [joinGameDialogOpen, setJoinGameDialogOpen] = useState(false);
@@ -266,6 +267,7 @@ export default function Home() {
                                             <Input
                                                 type='text'
                                                 placeholder='Enter your player name'
+                                                defaultValue={username || ""}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -328,6 +330,7 @@ export default function Home() {
                                             <Input
                                                 type='text'
                                                 placeholder='Enter your player name'
+                                                defaultValue={username || ""}
                                                 {...field}
                                             />
                                         </FormControl>

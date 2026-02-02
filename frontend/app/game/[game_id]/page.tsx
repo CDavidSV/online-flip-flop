@@ -64,6 +64,9 @@ export default function GamePage() {
         opponentPlayer,
         currentTurn,
         setCurrentTurn,
+        isSpectator,
+        activePlayer,
+        username,
     } = useGameRoom();
 
     const [moves, setMoves] = useState<
@@ -210,10 +213,14 @@ export default function GamePage() {
 
     // Sync isMyTurn with currentTurn from context
     useEffect(() => {
-        if (currentTurn !== null && currentPlayer?.color !== null) {
+        if (
+            currentTurn !== null &&
+            currentPlayer?.color !== null &&
+            !isSpectator
+        ) {
             setIsMyTurn(currentTurn === currentPlayer?.color);
         }
-    }, [currentTurn, currentPlayer]);
+    }, [currentTurn, currentPlayer, isSpectator]);
 
     useEffect(() => {
         if (viewportRef.current) {
@@ -259,20 +266,30 @@ export default function GamePage() {
 
         const cleanupMove = on("move", (payload: GameMoveMsg) => {
             if (payload.move.from && payload.move.to) {
+                // Get player from id
+                const player =
+                    currentPlayer?.id === payload.player_id
+                        ? currentPlayer
+                        : opponentPlayer;
+
                 addMove(
                     payload.move.from,
                     payload.move.to,
-                    opponentPlayer?.username || "Unknown",
+                    player?.username || "Unknown",
                 );
 
                 // Update current turn from server
-                // After opponent's move, it's now your turn
-                setIsMyTurn(currentPlayer?.color !== payload.color);
+                // After opponent's move, it's now your turn unless you're a spectator
+                if (!isSpectator) {
+                    setIsMyTurn(currentPlayer?.color !== payload.color);
+                }
             }
         });
 
         const cleanupStart = on("start", () => {
-            // Game has started, check if it's your turn
+            // Game has started, check if it's your turn unsless a spectator
+            if (isSpectator) return;
+
             const myTurn = currentPlayer?.color === PlayerColor.WHITE;
             setIsMyTurn(myTurn);
             setCurrentTurn(PlayerColor.WHITE); // White always starts
@@ -312,8 +329,14 @@ export default function GamePage() {
                 setShowLoadingOverlay(false);
                 setUsernameDialogOpen(false);
                 setJoinLoading(false);
+
+                if (value.is_spectator) {
+                    setInitialGameBoard(value.game_state.board);
+                    rebuildMoveHistory(value);
+                }
             })
             .catch((error) => {
+                console.error("Error joining room:", error);
                 setJoinLoading(false);
                 handleRoomError(error, usernameform);
             });
@@ -381,6 +404,7 @@ export default function GamePage() {
                                             <Input
                                                 type='text'
                                                 placeholder='Enter your player name'
+                                                defaultValue={username || ""}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -465,9 +489,16 @@ export default function GamePage() {
                                                 : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                                         }`}
                                     >
-                                        {isMyTurn
-                                            ? "Your Turn"
-                                            : "Opponent's Turn"}
+                                        {!isSpectator && (
+                                            <>
+                                                {isMyTurn
+                                                    ? "Your Turn"
+                                                    : "Opponent's Turn"}
+                                            </>
+                                        )}
+                                        {isSpectator &&
+                                            currentTurn !== null &&
+                                            `${activePlayer?.username || "Unknown"} is playing`}
                                     </div>
                                 </div>
                             )}
@@ -536,14 +567,17 @@ export default function GamePage() {
                                     </div>
                                 </CardContent>
                                 <CardFooter className='pt-0'>
-                                    <Button
-                                        onClick={handleForfeit}
-                                        variant='destructive'
-                                        className='w-full text-white rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-[1.01]'
-                                    >
-                                        <Flag size={18} className='mr-2' />
-                                        Forfeit Game
-                                    </Button>
+                                    {!isSpectator && (
+                                        <Button
+                                            onClick={handleForfeit}
+                                            variant='destructive'
+                                            disabled={gameStatus !== "ongoing"}
+                                            className='w-full text-white rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-[1.01]'
+                                        >
+                                            <Flag size={18} className='mr-2' />
+                                            Forfeit Game
+                                        </Button>
+                                    )}
                                 </CardFooter>
                             </Card>
 
@@ -564,10 +598,12 @@ export default function GamePage() {
                                                 <div
                                                     key={move.id}
                                                     className={`flex items-center justify-between py-1 px-2 rounded-md transition-colors mt-1 ${
-                                                        move.player ===
-                                                        currentPlayer?.username
-                                                            ? "bg-blue-50 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
-                                                            : "bg-green-50 dark:bg-green-900/50 text-green-800 dark:text-green-200"
+                                                        isSpectator
+                                                            ? "bg-gray-50 dark:bg-gray-700/50 text-gray-800 dark:text-gray-200"
+                                                            : move.player ===
+                                                                currentPlayer?.username
+                                                              ? "bg-blue-50 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
+                                                              : "bg-red-50 dark:bg-red-900/50 text-red-800 dark:text-red-200"
                                                     }`}
                                                 >
                                                     <span className='text-sm font-medium w-1/4'>

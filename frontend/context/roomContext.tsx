@@ -19,6 +19,7 @@ import {
     SetStateAction,
     useContext,
     useEffect,
+    useMemo,
     useState,
 } from "react";
 
@@ -33,6 +34,7 @@ interface GameRoomContext {
     currentPlayer: Player | null;
     opponentPlayer: Player | null;
     currentTurn: PlayerColor | null;
+    activePlayer: Player | null;
     createGameRoom: (
         username: string,
         gameType: GameType,
@@ -42,7 +44,7 @@ interface GameRoomContext {
     leaveRoom: () => Promise<boolean>;
     forfeitGame: () => Promise<void>;
     setCurrentTurn: Dispatch<SetStateAction<PlayerColor | null>>;
-    resetRoom: () => void;
+    resetState: () => void;
 }
 
 const gameRoomContext = createContext<GameRoomContext>({
@@ -56,6 +58,7 @@ const gameRoomContext = createContext<GameRoomContext>({
     currentPlayer: null,
     opponentPlayer: null,
     currentTurn: null,
+    activePlayer: null,
     createGameRoom: async () => {
         return "";
     },
@@ -81,7 +84,7 @@ const gameRoomContext = createContext<GameRoomContext>({
         return Promise.resolve();
     },
     setCurrentTurn: () => {},
-    resetRoom: () => {},
+    resetState: () => {},
 });
 
 export const useGameRoom = () => {
@@ -92,7 +95,13 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
     const { isConnected, sendRequest, on, clientId } = useWebSocket();
 
     const [roomId, setRoomId] = useState<string | null>(null);
-    const [username, setUsername] = useState<string | null>(null);
+    const [username, setUsername] = useState<string | null>(() => {
+        // Load username from localStorage on mount
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("username");
+        }
+        return null;
+    });
     const [isSpectator, setIsSpectator] = useState(false);
     const [inRoom, setInRoom] = useState(false);
     const [gameType, setGameType] = useState<GameType | null>(null);
@@ -108,6 +117,29 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         if (isConnected) return;
         resetState();
     }, [isConnected, clientId]);
+
+    useEffect(() => {
+        // Save username to localStorage
+        if (typeof window !== "undefined") {
+            if (username) {
+                localStorage.setItem("username", username);
+            }
+        }
+    }, [username]);
+
+    const activePlayer = useMemo(() => {
+        if (currentTurn === null || !currentPlayer || !opponentPlayer) {
+            return null;
+        }
+
+        if (currentPlayer.color === currentTurn) {
+            return currentPlayer;
+        } else if (opponentPlayer.color === currentTurn) {
+            return opponentPlayer;
+        }
+
+        return null;
+    }, [currentTurn, currentPlayer, opponentPlayer]);
 
     useEffect(() => {
         const cleanupPlayerLeft = on("player_left", () => {
@@ -330,16 +362,6 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const resetRoom = () => {
-        setRoomId(null);
-        setInRoom(false);
-        setIsSpectator(false);
-        setGameType(null);
-        setGameMode(null);
-        setCurrentPlayer(null);
-        setOpponentPlayer(null);
-    };
-
     return (
         <gameRoomContext.Provider
             value={{
@@ -353,12 +375,13 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                 currentPlayer,
                 opponentPlayer,
                 currentTurn,
+                activePlayer,
                 createGameRoom,
                 joinRoom,
                 leaveRoom,
                 forfeitGame,
                 setCurrentTurn,
-                resetRoom,
+                resetState,
             }}
         >
             {children}
