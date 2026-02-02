@@ -75,6 +75,7 @@ const gameRoomContext = createContext<GameRoomContext>({
                 winner: null,
             },
             move_history: [],
+            messages: [],
         };
     },
     leaveRoom: () => {
@@ -201,7 +202,6 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
     // Resets the room state
     const resetState = () => {
         setRoomId(null);
-        setUsername(null);
         setInRoom(false);
         setIsSpectator(false);
         setGameType(null);

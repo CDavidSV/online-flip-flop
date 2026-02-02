@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Flag } from "lucide-react";
-import { GameMoveMsg, JoinGameResponse, PlayerColor } from "@/types/types";
+import { ChatMessage, GameMoveMsg, JoinGameResponse, PlayerColor } from "@/types/types";
 import { useParams, useRouter } from "next/navigation";
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
@@ -86,6 +86,7 @@ export default function GamePage() {
     const [initialGameBoard, setInitialGameBoard] = useState<
         string | undefined
     >(undefined);
+    const [initialChatMessages, setInitialChatMessages] = useState<ChatMessage[]>([]);
     const [isMyTurn, setIsMyTurn] = useState<boolean>(false);
     const moveHistoryEndRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
@@ -93,7 +94,7 @@ export default function GamePage() {
     const usernameform = useForm<z.infer<typeof usernameFormSchema>>({
         resolver: zodResolver(usernameFormSchema),
         defaultValues: {
-            username: "",
+            username: username || "",
         },
     });
 
@@ -176,6 +177,7 @@ export default function GamePage() {
                         // Successfully rejoined
                         setShowLoadingOverlay(false);
                         setInitialGameBoard(value.game_state.board);
+                        setInitialChatMessages(value.messages || []);
                         rebuildMoveHistory(value);
                     })
                     .catch((error) => {
@@ -329,6 +331,7 @@ export default function GamePage() {
                 setShowLoadingOverlay(false);
                 setUsernameDialogOpen(false);
                 setJoinLoading(false);
+                setInitialChatMessages(value.messages || []);
 
                 if (value.is_spectator) {
                     setInitialGameBoard(value.game_state.board);
@@ -404,7 +407,6 @@ export default function GamePage() {
                                             <Input
                                                 type='text'
                                                 placeholder='Enter your player name'
-                                                defaultValue={username || ""}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -629,7 +631,7 @@ export default function GamePage() {
                             </Card>
 
                             {/* Chat Card */}
-                            <Chat />
+                            <Chat initialMessages={initialChatMessages} />
                         </div>
                     </div>
                 )}

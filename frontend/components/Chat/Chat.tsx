@@ -4,7 +4,7 @@ import { useWebSocket } from "@/context/wsContext";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { MessageEvent } from "@/types/types";
+import { ChatMessage, MessageEvent } from "@/types/types";
 import {
     Card,
     CardContent,
@@ -14,17 +14,13 @@ import {
 } from "../ui/card";
 import { useGameRoom } from "@/context/roomContext";
 
-interface ChatMessage {
-    client_id: string;
-    username: string;
-    message: string;
-}
-
-export function Chat() {
+export function Chat({ initialMessages }: { initialMessages?: ChatMessage[] }) {
     const { clientId, isConnected, on, sendRequest } = useWebSocket();
     const { isSpectator } = useGameRoom();
 
-    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>(
+        initialMessages || [],
+    );
     const [messageInput, setMessageInput] = useState("");
 
     const bottomChatRef = useRef<HTMLSpanElement>(null);
@@ -91,7 +87,7 @@ export function Chat() {
             <CardHeader>
                 <CardTitle className='flex items-center text-base'>
                     <MessageSquare size={16} className='mr-2' />
-                    { isSpectator ? "Spectator Chat" : "Game Chat"}
+                    {isSpectator ? "Spectator Chat" : "Game Chat"}
                 </CardTitle>
             </CardHeader>
             <CardContent className='p-0 h-[400px] md:flex-1 md:min-h-0'>
@@ -118,7 +114,9 @@ export function Chat() {
                                             ? "You"
                                             : msg.username}
                                     </strong>
-                                    <p className="wrap-anywhere">{msg.message}</p>
+                                    <p className='wrap-anywhere'>
+                                        {msg.message}
+                                    </p>
                                 </div>
                             </div>
                         ))}

@@ -40,7 +40,14 @@ enum ErrorCode {
 }
 
 // Incoming WebSocket message events
-type WSEventType = "player_left" | "start" | "move" | "chat" | "end" | "player_rejoined" | "joined";
+type WSEventType =
+    | "player_left"
+    | "start"
+    | "move"
+    | "chat"
+    | "end"
+    | "player_rejoined"
+    | "joined";
 
 // Game state types
 type GameStatus = "waiting_for_players" | "ongoing" | "closed";
@@ -92,6 +99,7 @@ interface JoinGameResponse {
     game_mode: GameMode;
     game_state: GameState;
     move_history: MoveSnapshot[];
+    messages: ChatMessage[];
 }
 
 interface MessageSendRequest {
@@ -135,7 +143,7 @@ interface GameMoveMsg {
     move: {
         from: string;
         to: string;
-    }
+    };
     player_id: string;
 }
 
@@ -143,6 +151,12 @@ interface MoveSnapshot {
     player_id: string;
     from: string;
     to: string;
+}
+
+interface ChatMessage {
+    client_id: string;
+    username: string;
+    message: string;
 }
 
 export { GameType, GameMode, PlayerColor, PieceType, ErrorCode };
@@ -163,4 +177,5 @@ export type {
     GameEndMsg,
     GameMoveMsg,
     MoveSnapshot,
+    ChatMessage,
 };

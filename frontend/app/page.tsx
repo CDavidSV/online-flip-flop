@@ -73,14 +73,14 @@ export default function Home() {
     const createGameform = useForm<z.infer<typeof createGameFormSchema>>({
         resolver: zodResolver(createGameFormSchema),
         defaultValues: {
-            username: "",
+            username: username || "",
         },
     });
 
     const joinGameform = useForm<z.infer<typeof joinGameFormSchema>>({
         resolver: zodResolver(joinGameFormSchema),
         defaultValues: {
-            username: "",
+            username: username || "",
             roomId: "",
         },
     });
@@ -267,7 +267,6 @@ export default function Home() {
                                             <Input
                                                 type='text'
                                                 placeholder='Enter your player name'
-                                                defaultValue={username || ""}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -330,7 +329,6 @@ export default function Home() {
                                             <Input
                                                 type='text'
                                                 placeholder='Enter your player name'
-                                                defaultValue={username || ""}
                                                 {...field}
                                             />
                                         </FormControl>
