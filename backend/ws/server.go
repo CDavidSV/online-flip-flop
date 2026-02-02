@@ -217,6 +217,7 @@ func (s *Server) handleJoinRoom(socket *gws.Conn, msg IncomingMessage) {
 		"game_type":    room.GameType,
 		"game_state":   room.GetGameState(),
 		"move_history": room.Game.GetMoveHistory(),
+		"messages":     room.GetMessages(isSpectator),
 	}, msg.RequestID), func(err error) {
 		if err != nil {
 			s.logger.Error("Failed to send join room confirmation", "error", err)

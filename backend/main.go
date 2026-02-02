@@ -38,6 +38,5 @@ func main() {
 	r.Get("/ws", ws.WSHandler(gameServer))
 
 	// Start Server
-	slog.Info("Running in development mode")
 	log.Fatal(http.ListenAndServe(*host, r))
 }

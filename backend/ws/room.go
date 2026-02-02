@@ -38,17 +38,25 @@ type GameState struct {
 	Players     []PlayerSlot     `json:"players"`
 }
 
+type SavedMessage struct {
+	ClientID string `json:"client_id"`
+	Username string `json:"username"`
+	Message  string `json:"message"`
+}
+
 type GameRoom struct {
-	ID       string
-	Game     games.Game
-	GameMode GameMode
-	GameType games.GameType
-	player1  *PlayerSlot
-	player2  *PlayerSlot
-	conns    map[string]*ClientConnection
-	status   Status
-	logger   *slog.Logger
-	mu       sync.RWMutex
+	ID                string
+	Game              games.Game
+	GameMode          GameMode
+	GameType          games.GameType
+	player1           *PlayerSlot
+	player2           *PlayerSlot
+	conns             map[string]*ClientConnection
+	status            Status
+	logger            *slog.Logger
+	mu                sync.RWMutex
+	playerMessages    []SavedMessage
+	spectatorMessages []SavedMessage
 }
 
 const (
@@ -60,13 +68,15 @@ const (
 // Create and returns a new GameRoom instance.
 func NewGameRoom(id string, game games.Game, gameMode GameMode, gameType games.GameType, logger *slog.Logger) *GameRoom {
 	return &GameRoom{
-		ID:       id,
-		Game:     game,
-		GameMode: gameMode,
-		GameType: gameType,
-		conns:    make(map[string]*ClientConnection),
-		status:   StatusWaiting,
-		logger:   logger,
+		ID:                id,
+		Game:              game,
+		GameMode:          gameMode,
+		GameType:          gameType,
+		conns:             make(map[string]*ClientConnection),
+		status:            StatusWaiting,
+		logger:            logger,
+		playerMessages:    []SavedMessage{},
+		spectatorMessages: []SavedMessage{},
 	}
 }
 
@@ -425,6 +435,18 @@ func (gr *GameRoom) HandleChatMessage(clientID, requestID, message string) error
 			if err := b.Broadcast(clientConn.conn); err != nil {
 				gr.logger.Error("Failed to broadcast chat message", "error", err)
 			}
+
+			// Same message to history
+			msg := SavedMessage{
+				ClientID: clientID,
+				Username: sender.Username,
+				Message:  message,
+			}
+			if !sender.isSpectator {
+				gr.playerMessages = append(gr.playerMessages, msg)
+			} else {
+				gr.spectatorMessages = append(gr.spectatorMessages, msg)
+			}
 		}
 	}
 
@@ -457,4 +479,23 @@ func (gr *GameRoom) IsClosed() bool {
 	defer gr.mu.RUnlock()
 
 	return gr.status == StatusClosed
+}
+
+func (gr *GameRoom) GetMessages(spectator bool) []SavedMessage {
+	gr.mu.RLock()
+	defer gr.mu.RUnlock()
+
+	var messages []SavedMessage
+	if spectator {
+		messages = gr.spectatorMessages
+	} else {
+		messages = gr.playerMessages
+	}
+
+	// Return the last 100 elements of the array
+	if len(messages) > 100 {
+		return messages[len(messages)-100:]
+	}
+
+	return messages
 }
