@@ -458,6 +458,7 @@ func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
 		winner:         -1,
 		positionCounts: make(map[string]int),
 		boardHistory:   make([]string, 0),
+		moveHistory:    make([]MoveSnapshot, 0),
 	}
 
 	game.createBoard()
