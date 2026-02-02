@@ -1,7 +1,7 @@
 "use client";
 
 import MenuButton from "@/components/ui/menuButton";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,8 +53,7 @@ const joinGameFormSchema = z.object({
 export default function Home() {
     const router = useRouter();
     const { isConnected } = useWebSocket();
-    const { createGameRoom, joinRoom, leaveRoom, inRoom, username } =
-        useGameRoom();
+    const { createGameRoom, joinRoom, username } = useGameRoom();
 
     const [newGameDialogOpen, setNewGameDialogOpen] = useState(false);
     const [joinGameDialogOpen, setJoinGameDialogOpen] = useState(false);
@@ -84,12 +83,6 @@ export default function Home() {
             roomId: "",
         },
     });
-
-    useEffect(() => {
-        if (inRoom) {
-            leaveRoom();
-        }
-    }, []);
 
     const createGameFormSubmit = (
         data: z.infer<typeof createGameFormSchema>,

@@ -5,7 +5,12 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Flag } from "lucide-react";
-import { ChatMessage, GameMoveMsg, JoinGameResponse, PlayerColor } from "@/types/types";
+import {
+    ChatMessage,
+    GameMoveMsg,
+    JoinGameResponse,
+    PlayerColor,
+} from "@/types/types";
 import { useParams, useRouter } from "next/navigation";
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
@@ -16,7 +21,7 @@ import { toast } from "sonner";
 import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
 import { ErrorCode } from "@/types/types";
 import { Spinner } from "@/components/ui/spinner";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Chat } from "@/components/Chat/Chat";
 import { FlipFlop } from "@/components/FlipFlop/FlipFlop";
 import z from "zod";
@@ -86,7 +91,9 @@ export default function GamePage() {
     const [initialGameBoard, setInitialGameBoard] = useState<
         string | undefined
     >(undefined);
-    const [initialChatMessages, setInitialChatMessages] = useState<ChatMessage[]>([]);
+    const [initialChatMessages, setInitialChatMessages] = useState<
+        ChatMessage[]
+    >([]);
     const [isMyTurn, setIsMyTurn] = useState<boolean>(false);
     const moveHistoryEndRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
@@ -98,58 +105,61 @@ export default function GamePage() {
         },
     });
 
-    const handleRoomError = (
-        error: unknown,
-        formContext?: typeof usernameform,
-    ) => {
-        if (!isWSError(error)) {
-            toast.error("An error occurred while joining the game");
-            return;
-        }
-
-        const errorInfo = getErrorInfo(error);
-
-        // Handle validation errors if form context provided
-        if (
-            formContext &&
-            isErrorCode(error, ErrorCode.VALIDATION_FAILED) &&
-            error.details
-        ) {
-            const validationErrors = error.details as Record<string, string>;
-
-            if (validationErrors.username) {
-                formContext.setError("username", {
-                    type: "manual",
-                    message: validationErrors.username,
-                });
+    const handleRoomError = useCallback(
+        (error: unknown, formContext?: typeof usernameform) => {
+            if (!isWSError(error)) {
+                toast.error("An error occurred while joining the game");
+                return;
             }
-            if (validationErrors.room_id) {
-                toast.error(validationErrors.room_id);
-                setTimeout(() => router.push("/"), 2000);
-            }
-            return;
-        }
 
-        // Handle common error cases
-        switch (errorInfo.code) {
-            case ErrorCode.ROOM_NOT_FOUND:
-            case ErrorCode.ROOM_CLOSED:
-            case ErrorCode.GAME_ENDED:
-                toast.error(errorInfo.message);
-                router.push("/");
-                break;
-            default:
-                if (formContext) {
-                    formContext.setError("root", {
+            const errorInfo = getErrorInfo(error);
+
+            // Handle validation errors if form context provided
+            if (
+                formContext &&
+                isErrorCode(error, ErrorCode.VALIDATION_FAILED) &&
+                error.details
+            ) {
+                const validationErrors = error.details as Record<
+                    string,
+                    string
+                >;
+
+                if (validationErrors.username) {
+                    formContext.setError("username", {
                         type: "manual",
-                        message: errorInfo.message,
+                        message: validationErrors.username,
                     });
-                } else {
-                    toast.error(errorInfo.message || "Failed to join game");
                 }
-                break;
-        }
-    };
+                if (validationErrors.room_id) {
+                    toast.error(validationErrors.room_id);
+                    setTimeout(() => router.push("/"), 2000);
+                }
+                return;
+            }
+
+            // Handle common error cases
+            switch (errorInfo.code) {
+                case ErrorCode.ROOM_NOT_FOUND:
+                case ErrorCode.ROOM_CLOSED:
+                case ErrorCode.GAME_ENDED:
+                    toast.error(errorInfo.message);
+                    router.push("/");
+                    break;
+                default:
+                    if (formContext) {
+                        formContext.setError("root", {
+                            type: "manual",
+                            message: errorInfo.message,
+                        });
+                    } else {
+                        toast.error(errorInfo.message || "Failed to join game");
+                    }
+                    break;
+            }
+        },
+        [router],
+    );
 
     useEffect(() => {
         if (gameEnded) return;
@@ -205,6 +215,7 @@ export default function GamePage() {
         attemptedRejoin,
         gameEnded,
         joinRoom,
+        handleRoomError,
     ]);
 
     useEffect(() => {
@@ -247,21 +258,24 @@ export default function GamePage() {
         });
     };
 
-    const rebuildMoveHistory = (joinGameResponse: JoinGameResponse) => {
-        const moves: any = [];
-        joinGameResponse.move_history.forEach((move) => {
-            const player = joinGameResponse.game_state.players.find(
-                (p) => p.id === move.player_id,
-            )?.username;
-            moves.push({
-                id: moves.length + 1,
-                player: player,
-                notation: `${move.from}-${move.to}`,
+    const rebuildMoveHistory = useCallback(
+        (joinGameResponse: JoinGameResponse) => {
+            const moves: any = [];
+            joinGameResponse.move_history.forEach((move) => {
+                const player = joinGameResponse.game_state.players.find(
+                    (p) => p.id === move.player_id,
+                )?.username;
+                moves.push({
+                    id: moves.length + 1,
+                    player: player,
+                    notation: `${move.from}-${move.to}`,
+                });
             });
-        });
 
-        setMoves(moves);
-    };
+            setMoves(moves);
+        },
+        [],
+    );
 
     useEffect(() => {
         if (!isConnected) return;
@@ -280,16 +294,16 @@ export default function GamePage() {
                     player?.username || "Unknown",
                 );
 
-                // Update current turn from server
-                // After opponent's move, it's now your turn unless you're a spectator
-                if (!isSpectator) {
-                    setIsMyTurn(currentPlayer?.color !== payload.color);
-                }
+                // Update current turn based on current player color
+                setIsMyTurn((prevIsMyTurn) => {
+                    if (isSpectator) return prevIsMyTurn;
+                    return currentPlayer?.color !== payload.color;
+                });
             }
         });
 
         const cleanupStart = on("start", () => {
-            // Game has started, check if it's your turn unsless a spectator
+            // Game has started, check if it's your turn unless a spectator
             if (isSpectator) return;
 
             const myTurn = currentPlayer?.color === PlayerColor.WHITE;
@@ -301,7 +315,14 @@ export default function GamePage() {
             cleanupMove();
             cleanupStart();
         };
-    }, [isConnected, on, opponentPlayer, currentPlayer]);
+    }, [
+        isConnected,
+        on,
+        opponentPlayer,
+        currentPlayer,
+        isSpectator,
+        setCurrentTurn,
+    ]);
 
     const copyRoomId = () => {
         const textarea = document.createElement("textarea");

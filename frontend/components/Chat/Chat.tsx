@@ -3,7 +3,7 @@ import { ScrollArea } from "../ui/scroll-area";
 import { useWebSocket } from "@/context/wsContext";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, KeyboardEvent, useCallback } from "react";
 import { ChatMessage, MessageEvent } from "@/types/types";
 import {
     Card,
@@ -56,22 +56,21 @@ export function Chat({ initialMessages }: { initialMessages?: ChatMessage[] }) {
         }
     };
 
-    const onMessageReceived = (msg: MessageEvent) => {
+    const onMessageReceived = useCallback((msg: MessageEvent) => {
         const newMessage = {
             client_id: msg.clientId,
             username: msg.username,
             message: msg.message,
         };
-
         setChatMessages((prevMessages) => [...prevMessages, newMessage]);
-    };
+    }, []);
 
     useEffect(() => {
         if (isConnected && clientId) {
             const cleanup = on("chat", onMessageReceived);
             return cleanup;
         }
-    }, [isConnected, clientId, on]);
+    }, [isConnected, clientId, on, onMessageReceived]);
 
     useEffect(() => {
         if (viewportRef.current) {

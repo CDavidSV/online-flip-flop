@@ -1,6 +1,7 @@
 "use client";
 
 import { useWebSocket } from "./wsContext";
+import { usePathname } from "next/navigation";
 import {
     GameMode,
     GameType,
@@ -21,6 +22,7 @@ import {
     useEffect,
     useMemo,
     useState,
+    useRef,
 } from "react";
 
 interface GameRoomContext {
@@ -94,6 +96,9 @@ export const useGameRoom = () => {
 
 export function GameRoomProvider({ children }: { children: ReactNode }) {
     const { isConnected, sendRequest, on, clientId } = useWebSocket();
+    const pathname = usePathname();
+
+    const previousPathRef = useRef<string | null>(null);
 
     const [roomId, setRoomId] = useState<string | null>(null);
     const [username, setUsername] = useState<string | null>(() => {
@@ -118,6 +123,25 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         if (isConnected) return;
         resetState();
     }, [isConnected, clientId]);
+
+    // Cleanup when navigating to home page
+    useEffect(() => {
+        // Track path changes
+        if (previousPathRef.current === null) {
+            // First render
+            previousPathRef.current = pathname;
+            return;
+        }
+
+        // If navigating to home page from a game page and still in a room
+        if (pathname === "/" && previousPathRef.current !== "/" && inRoom) {
+            leaveRoom().catch((error) => {
+                console.error("Cleanup failed:", error);
+            });
+        }
+
+        previousPathRef.current = pathname;
+    }, [pathname, inRoom]);
 
     useEffect(() => {
         // Save username to localStorage
