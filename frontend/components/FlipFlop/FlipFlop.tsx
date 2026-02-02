@@ -43,8 +43,15 @@ export function FlipFlop({
         goals = [2, 22];
     }
 
-    const { gameStatus, currentTurn, setCurrentTurn, resetState, isSpectator } =
-        useGameRoom();
+    const {
+        gameStatus,
+        currentTurn,
+        setCurrentTurn,
+        resetState,
+        isSpectator,
+        currentPlayer,
+        opponentPlayer,
+    } = useGameRoom();
     const { sendRequest, on } = useWebSocket();
 
     const [gameBoard, setGameBoard] = useState<(FFPiece | null)[][]>([]);
@@ -519,8 +526,8 @@ export function FlipFlop({
 
                     {/* Popup Content */}
                     <div className='relative z-10'>
-                        {gameEndResult.reason === "draw" ? (
-                            // Draw popup
+                        {/* Draw Result */}
+                        {gameEndResult.reason === "draw" && (
                             <div className='bg-gradient-to-br from-gray-400 to-gray-600 rounded-3xl shadow-2xl border-8 border-gray-300 p-12 text-center min-w-[400px] animate-in spin-in-180 duration-700'>
                                 <h2 className='text-5xl font-black text-white mb-4 tracking-wider'>
                                     DRAW!
@@ -535,14 +542,20 @@ export function FlipFlop({
                                     Return to Menu
                                 </button>
                             </div>
-                        ) : gameEndResult.winner === side ? (
-                            // Victory popup
+                        )}
+
+                        {/* Spectator View - Game Over */}
+                        {gameEndResult.reason !== "draw" && isSpectator && (
                             <div className='bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl shadow-2xl border-8 border-yellow-200 p-12 text-center min-w-[400px] animate-in slide-in-from-bottom-10 duration-700'>
                                 <h2 className='text-6xl font-black text-yellow-900 mb-4 tracking-wider drop-shadow-lg'>
-                                    VICTORY!
+                                    GAME OVER
                                 </h2>
                                 <p className='text-3xl text-yellow-800 font-bold'>
-                                    You Win!
+                                    {gameEndResult.winner ===
+                                    currentPlayer?.color
+                                        ? currentPlayer?.username
+                                        : opponentPlayer?.username}{" "}
+                                    Wins!
                                 </p>
                                 <button
                                     onClick={handleReturnToMenu}
@@ -551,26 +564,50 @@ export function FlipFlop({
                                     Return to Menu
                                 </button>
                             </div>
-                        ) : (
-                            // Defeat popup
-                            <div className='bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-3xl shadow-2xl border-8 border-red-400 p-12 text-center min-w-[400px] animate-in slide-in-from-top-10 duration-700'>
-                                <h2 className='text-6xl font-black text-white mb-4 tracking-wider drop-shadow-lg'>
-                                    DEFEAT
-                                </h2>
-                                <p className='text-3xl text-red-100 font-bold'>
-                                    You Lose
-                                </p>
-                                <p className='text-xl text-red-200 mt-4'>
-                                    Better luck next time!
-                                </p>
-                                <button
-                                    onClick={handleReturnToMenu}
-                                    className='mt-8 px-8 py-4 bg-white text-red-600 font-bold text-xl rounded-xl hover:bg-red-50 transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer'
-                                >
-                                    Return to Menu
-                                </button>
-                            </div>
                         )}
+
+                        {/* Player Victory */}
+                        {gameEndResult.reason !== "draw" &&
+                            !isSpectator &&
+                            gameEndResult.winner === side && (
+                                <div className='bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl shadow-2xl border-8 border-yellow-200 p-12 text-center min-w-[400px] animate-in slide-in-from-bottom-10 duration-700'>
+                                    <h2 className='text-6xl font-black text-yellow-900 mb-4 tracking-wider drop-shadow-lg'>
+                                        VICTORY!
+                                    </h2>
+                                    <p className='text-3xl text-yellow-800 font-bold'>
+                                        You Win!
+                                    </p>
+                                    <button
+                                        onClick={handleReturnToMenu}
+                                        className='mt-8 px-8 py-4 bg-yellow-900 text-yellow-100 font-bold text-xl rounded-xl hover:bg-yellow-800 transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer'
+                                    >
+                                        Return to Menu
+                                    </button>
+                                </div>
+                            )}
+
+                        {/* Player Defeat */}
+                        {gameEndResult.reason !== "draw" &&
+                            !isSpectator &&
+                            gameEndResult.winner !== side && (
+                                <div className='bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-3xl shadow-2xl border-8 border-red-400 p-12 text-center min-w-[400px] animate-in slide-in-from-top-10 duration-700'>
+                                    <h2 className='text-6xl font-black text-white mb-4 tracking-wider drop-shadow-lg'>
+                                        DEFEAT
+                                    </h2>
+                                    <p className='text-3xl text-red-100 font-bold'>
+                                        You Lose
+                                    </p>
+                                    <p className='text-xl text-red-200 mt-4'>
+                                        Better luck next time!
+                                    </p>
+                                    <button
+                                        onClick={handleReturnToMenu}
+                                        className='mt-8 px-8 py-4 bg-white text-red-600 font-bold text-xl rounded-xl hover:bg-red-50 transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer'
+                                    >
+                                        Return to Menu
+                                    </button>
+                                </div>
+                            )}
                     </div>
                 </div>
             )}
