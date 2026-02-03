@@ -66,6 +66,7 @@ export const WebsocketProvider = ({
 
     /**
      * Stores the client id in state and localStorage
+     * @param id
      */
     const saveClientId = (id: string) => {
         if (clientId && clientId === id) return;
@@ -147,6 +148,7 @@ export const WebsocketProvider = ({
 
     /**
      * Called when there is an error with the websocket connection.
+     * @param error
      */
     const handleOnError = (error: Event) => {
         console.error("WebSocket error:", error);
@@ -179,6 +181,9 @@ export const WebsocketProvider = ({
 
     /**
      * Sends a message to the server.
+     * @param type
+     * @param payload
+     * @returns request_id of the sent message
      */
     const sendMessage = (type: string, payload: any): string => {
         if (!socket.current || socket.current.readyState !== WebSocket.OPEN) {
@@ -198,6 +203,9 @@ export const WebsocketProvider = ({
 
     /**
      * Sends a request to the server and returns a promise that resolves with the response.
+     * @param type
+     * @param payload
+     * @returns Promise that resolves with the server response
      */
     const sendRequest = (type: string, payload: any): Promise<WSMessage> => {
         return new Promise<WSMessage>((resolve, reject) => {

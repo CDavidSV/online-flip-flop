@@ -3,6 +3,7 @@
 import MenuButton from "@/components/ui/menuButton";
 import { useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
+import packageJson from "../package.json";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -55,16 +56,14 @@ export default function Home() {
     const { isConnected } = useWebSocket();
     const { createGameRoom, joinRoom, username } = useGameRoom();
 
-    const [newGameDialogOpen, setNewGameDialogOpen] = useState(false);
-    const [joinGameDialogOpen, setJoinGameDialogOpen] = useState(false);
-    const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
-
-    const [createLoading, setCreateLoading] = useState(false);
-    const [infoLoading, setInfoLoading] = useState(false);
-
-    const [gameType, setGameType] = useState<GameType>(GameType.FLIPFLOP_3x3);
-    const [gameMode, setGameMode] = useState<GameMode>(GameMode.MULTIPLAYER);
-
+    const [openDialog, setOpenDialog] = useState<
+        "create" | "join" | "rules" | null
+    >(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [gameConfig, setGameConfig] = useState({
+        type: GameType.FLIPFLOP_3x3,
+        mode: GameMode.MULTIPLAYER,
+    });
     const [carouselApi, setCarouselApi] = useState<
         ReturnType<typeof useEmblaCarousel>[1] | null
     >(null);
@@ -87,16 +86,16 @@ export default function Home() {
     const createGameFormSubmit = (
         data: z.infer<typeof createGameFormSchema>,
     ) => {
-        setCreateLoading(true);
+        setIsLoading(true);
 
         // Submit create game request to backend
-        createGameRoom(data.username, gameType, gameMode)
+        createGameRoom(data.username, gameConfig.type, gameConfig.mode)
             .then((response) => {
                 // Redirect user to game page
                 router.push(`/game/${response}`);
             })
             .catch((error) => {
-                setCreateLoading(false);
+                setIsLoading(false);
                 if (isWSError(error)) {
                     const errorInfo = getErrorInfo(error);
 
@@ -132,8 +131,6 @@ export default function Home() {
                             break;
                     }
                 } else {
-                    // Handle non-WebSocket errors
-
                     console.error("Error creating game:", error);
                     toast.error("An error occurred while creating the game.");
                 }
@@ -141,7 +138,7 @@ export default function Home() {
     };
 
     const joinGameFormSubmit = (data: z.infer<typeof joinGameFormSchema>) => {
-        setInfoLoading(true);
+        setIsLoading(true);
 
         joinRoom(data.roomId, data.username)
             .then(() => {
@@ -149,7 +146,7 @@ export default function Home() {
                 router.push(`/game/${data.roomId}`);
             })
             .catch((error) => {
-                setInfoLoading(false);
+                setIsLoading(false);
                 if (isWSError(error)) {
                     const errorInfo = getErrorInfo(error);
 
@@ -228,13 +225,13 @@ export default function Home() {
     return (
         <>
             <RulesDialog
-                open={rulesDialogOpen}
-                onOpenChange={setRulesDialogOpen}
+                open={openDialog === "rules"}
+                onOpenChange={(open) => setOpenDialog(open ? "rules" : null)}
             />
             {/* Create Game Dialog */}
             <Dialog
-                open={newGameDialogOpen}
-                onOpenChange={(open) => setNewGameDialogOpen(open)}
+                open={openDialog === "create"}
+                onOpenChange={(open) => setOpenDialog(open ? "create" : null)}
             >
                 <DialogContent>
                     <DialogHeader>
@@ -279,10 +276,10 @@ export default function Home() {
                                 <Button
                                     className='w-full'
                                     type='submit'
-                                    disabled={createLoading}
+                                    disabled={isLoading}
                                 >
-                                    {createLoading && <Spinner />}
-                                    {createLoading
+                                    {isLoading && <Spinner />}
+                                    {isLoading
                                         ? "Creating Game"
                                         : "Create Game"}
                                 </Button>
@@ -294,8 +291,8 @@ export default function Home() {
 
             {/* Join Game Dialog */}
             <Dialog
-                open={joinGameDialogOpen}
-                onOpenChange={(open) => setJoinGameDialogOpen(open)}
+                open={openDialog === "join"}
+                onOpenChange={(open) => setOpenDialog(open ? "join" : null)}
             >
                 <DialogContent>
                     <DialogHeader>
@@ -355,10 +352,10 @@ export default function Home() {
                                 <Button
                                     className='w-full'
                                     type='submit'
-                                    disabled={infoLoading}
+                                    disabled={isLoading}
                                 >
-                                    {infoLoading && <Spinner />}
-                                    {infoLoading ? "Joining Game" : "Join Game"}
+                                    {isLoading && <Spinner />}
+                                    {isLoading ? "Joining Game" : "Join Game"}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -402,12 +399,12 @@ export default function Home() {
                             <MenuButton
                                 text='Join Game'
                                 icon={<DoorOpen className='size-8' />}
-                                onClick={() => setJoinGameDialogOpen(true)}
+                                onClick={() => setOpenDialog("join")}
                             />
                             <MenuButton
                                 text='Rules'
                                 icon={<BookOpen className='size-8' />}
-                                onClick={() => setRulesDialogOpen(true)}
+                                onClick={() => setOpenDialog("rules")}
                             />
                         </CarouselItem>
                         <CarouselItem className='flex justify-center items-center flex-col gap-4'>
@@ -417,7 +414,10 @@ export default function Home() {
                                     icon={<User className='size-8' />}
                                     disabled
                                     onClick={() => {
-                                        setGameMode(GameMode.SINGLEPLAYER);
+                                        setGameConfig((prev) => ({
+                                            ...prev,
+                                            mode: GameMode.SINGLEPLAYER,
+                                        }));
                                         carouselApi?.scrollNext();
                                     }}
                                 />
@@ -425,7 +425,10 @@ export default function Home() {
                                     text='Multiplayer'
                                     icon={<Users2 className='size-8' />}
                                     onClick={() => {
-                                        setGameMode(GameMode.MULTIPLAYER);
+                                        setGameConfig((prev) => ({
+                                            ...prev,
+                                            mode: GameMode.MULTIPLAYER,
+                                        }));
                                         carouselApi?.scrollNext();
                                     }}
                                 />
@@ -444,23 +447,32 @@ export default function Home() {
                                 <MenuButton
                                     text='FlipFlop 3x3'
                                     onClick={() => {
-                                        setGameType(GameType.FLIPFLOP_3x3);
-                                        setNewGameDialogOpen(true);
+                                        setGameConfig((prev) => ({
+                                            ...prev,
+                                            type: GameType.FLIPFLOP_3x3,
+                                        }));
+                                        setOpenDialog("create");
                                     }}
                                 />
                                 <MenuButton
                                     text='FlipFlop 5x5'
                                     onClick={() => {
-                                        setGameType(GameType.FLIPFLOP_5x5);
-                                        setNewGameDialogOpen(true);
+                                        setGameConfig((prev) => ({
+                                            ...prev,
+                                            type: GameType.FLIPFLOP_5x5,
+                                        }));
+                                        setOpenDialog("create");
                                     }}
                                 />
                                 <MenuButton
                                     text='FlipFour'
                                     disabled
                                     onClick={() => {
-                                        setGameType(GameType.FLIPFOUR);
-                                        setNewGameDialogOpen(true);
+                                        setGameConfig((prev) => ({
+                                            ...prev,
+                                            type: GameType.FLIPFOUR,
+                                        }));
+                                        setOpenDialog("create");
                                     }}
                                 />
                             </div>
@@ -476,7 +488,7 @@ export default function Home() {
                     </CarouselContent>
                 </Carousel>
                 <div className='absolute bottom-0 right-0 w-full px-2 flex flex-row gap-4 text-muted-foreground text-xs'>
-                    <p>v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
+                    <p>v{packageJson.version}</p>
                 </div>
             </main>
         </>

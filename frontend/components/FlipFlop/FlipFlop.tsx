@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-    FFPiece,
+    FlipFlopPiece,
     GameType,
     PlayerColor,
     PieceType,
@@ -20,28 +20,22 @@ export interface BoardProps {
     onMoveMade?: (from: string, to: string) => void;
 }
 
+const TURN_INDICATOR_DURATION = 2000; // Duration in milliseconds
+
 export function FlipFlop({
     type,
     side,
     initialBoardState,
     onMoveMade,
 }: BoardProps) {
-    const TURN_INDICATOR_DURATION = 2000; // Duration in milliseconds
-
     const router = useRouter();
     const colors = {
         squarePrimaryColor: "#891c7e",
         squareSecondaryColor: "#fff695",
     };
 
-    let goals = [];
+    let goals = type === GameType.FLIPFLOP_3x3 ? [1, 7] : [2, 22];
     const cols = ["A", "B", "C", "D", "E"];
-
-    if (type === GameType.FLIPFLOP_3x3) {
-        goals = [1, 7];
-    } else {
-        goals = [2, 22];
-    }
 
     const {
         gameStatus,
@@ -54,10 +48,10 @@ export function FlipFlop({
     } = useGameRoom();
     const { sendRequest, on } = useWebSocket();
 
-    const [gameBoard, setGameBoard] = useState<(FFPiece | null)[][]>([]);
+    const [gameBoard, setGameBoard] = useState<(FlipFlopPiece | null)[][]>([]);
     const [validMoves, setValidMoves] = useState<[number, number][]>([]);
-    const [selectedPiece, setSelectedPiece] = useState<FFPiece | null>(null);
-    const [draggedPiece, setDraggedPiece] = useState<FFPiece | null>(null);
+    const [selectedPiece, setSelectedPiece] = useState<FlipFlopPiece | null>(null);
+    const [draggedPiece, setDraggedPiece] = useState<FlipFlopPiece | null>(null);
     const [showTurnIndicator, setShowTurnIndicator] = useState(false);
     const [isFadingOut, setIsFadingOut] = useState(false);
     const [showGameEnd, setShowGameEnd] = useState(false);
@@ -129,9 +123,9 @@ export function FlipFlop({
     }, [gameStatus]);
 
     const createBoard = () => {
-        const board: (FFPiece | null)[][] = [];
+        const board: (FlipFlopPiece | null)[][] = [];
         for (let i = 0; i < boardSize; i++) {
-            const row: (FFPiece | null)[] = [];
+            const row: (FlipFlopPiece | null)[] = [];
             for (let j = 0; j < boardSize; j++) {
                 if (i === 0) {
                     row.push({
@@ -144,7 +138,7 @@ export function FlipFlop({
                         captured: false,
                         id: crypto.randomUUID(),
                         selected: false,
-                    } as FFPiece);
+                    } as FlipFlopPiece);
                 } else if (i === boardSize - 1) {
                     row.push({
                         color: side,
@@ -153,7 +147,7 @@ export function FlipFlop({
                         captured: false,
                         id: crypto.randomUUID(),
                         selected: false,
-                    } as FFPiece);
+                    } as FlipFlopPiece);
                 } else {
                     row.push(null);
                 }
@@ -181,10 +175,10 @@ export function FlipFlop({
         const boardPart = fenString.slice(0, -1);
 
         const rows = boardPart.split("/");
-        const newBoard: (FFPiece | null)[][] = [];
+        const newBoard: (FlipFlopPiece | null)[][] = [];
 
         rows.forEach((rowStr, rowIndex) => {
-            const row: (FFPiece | null)[] = [];
+            const row: (FlipFlopPiece | null)[] = [];
             for (let colIndex = 0; colIndex < rowStr.length; colIndex++) {
                 const char = rowStr[colIndex];
 
@@ -223,7 +217,7 @@ export function FlipFlop({
                         captured: false,
                         id: crypto.randomUUID(),
                         selected: false,
-                    } as FFPiece);
+                    } as FlipFlopPiece);
                 }
             }
             newBoard.push(row);
@@ -255,7 +249,7 @@ export function FlipFlop({
         return newBoard;
     };
 
-    const calculateValidMoves = (piece: FFPiece) => {
+    const calculateValidMoves = (piece: FlipFlopPiece) => {
         const moves: [number, number][] = [];
         const directions =
             piece.side === PieceType.ROOK
@@ -301,7 +295,7 @@ export function FlipFlop({
         return moves;
     };
 
-    const selectPiece = (piece: FFPiece) => {
+    const selectPiece = (piece: FlipFlopPiece) => {
         if (isSpectator) return;
 
         // Only allow selecting own pieces when game is ongoing and it's the player's turn
@@ -328,7 +322,7 @@ export function FlipFlop({
         setValidMoves(moves);
     };
 
-    const handleDragStart = (e: React.DragEvent, piece: FFPiece) => {
+    const handleDragStart = (e: React.DragEvent, piece: FlipFlopPiece) => {
         // Only allow dragging own pieces when game is ongoing and it's the player's turn
         if (
             piece.color !== side ||

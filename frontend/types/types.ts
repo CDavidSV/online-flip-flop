@@ -119,7 +119,7 @@ interface Player {
     is_ai: boolean;
 }
 
-interface FFPiece {
+interface FlipFlopPiece {
     id: string;
     color: PlayerColor;
     side: PieceType;
@@ -171,7 +171,7 @@ export type {
     WSError,
     WSEventType,
     Player,
-    FFPiece,
+    FlipFlopPiece,
     GameStatus,
     PlayerRejoinMsg,
     GameEndMsg,

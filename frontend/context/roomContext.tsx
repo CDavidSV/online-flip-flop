@@ -152,20 +152,6 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         }
     }, [username]);
 
-    const activePlayer = useMemo(() => {
-        if (currentTurn === null || !currentPlayer || !opponentPlayer) {
-            return null;
-        }
-
-        if (currentPlayer.color === currentTurn) {
-            return currentPlayer;
-        } else if (opponentPlayer.color === currentTurn) {
-            return opponentPlayer;
-        }
-
-        return null;
-    }, [currentTurn, currentPlayer, opponentPlayer]);
-
     useEffect(() => {
         const cleanupPlayerLeft = on("player_left", () => {
             setGameStatus("waiting_for_players");
@@ -222,6 +208,20 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
             cleanupRejoin();
         };
     }, [on]);
+
+    const activePlayer = useMemo(() => {
+        if (currentTurn === null || !currentPlayer || !opponentPlayer) {
+            return null;
+        }
+
+        if (currentPlayer.color === currentTurn) {
+            return currentPlayer;
+        } else if (opponentPlayer.color === currentTurn) {
+            return opponentPlayer;
+        }
+
+        return null;
+    }, [currentTurn, currentPlayer, opponentPlayer]);
 
     // Resets the room state
     const resetState = () => {
@@ -357,6 +357,10 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    /**
+     * Leaves the current game room.
+     * @return boolean indicating success
+     */
     const leaveRoom = async (): Promise<boolean> => {
         if (!isConnected || !inRoom) return false;
 
@@ -373,6 +377,10 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    /**
+     * Forfeits the current game.
+     * @throws Error if not connected or not in a room
+     */
     const forfeitGame = async (): Promise<void> => {
         if (!isConnected || !inRoom) {
             throw new Error("Not connected or not in a room");

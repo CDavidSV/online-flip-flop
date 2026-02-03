@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Flag } from "lucide-react";
 import {
@@ -21,9 +20,10 @@ import { toast } from "sonner";
 import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
 import { ErrorCode } from "@/types/types";
 import { Spinner } from "@/components/ui/spinner";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Chat } from "@/components/Chat/Chat";
 import { FlipFlop } from "@/components/FlipFlop/FlipFlop";
+import { MoveHistory } from "@/components/FlipFlop/MoveHistory";
 import z from "zod";
 import {
     Card,
@@ -95,8 +95,6 @@ export default function GamePage() {
         ChatMessage[]
     >([]);
     const [isMyTurn, setIsMyTurn] = useState<boolean>(false);
-    const moveHistoryEndRef = useRef<HTMLDivElement>(null);
-    const viewportRef = useRef<HTMLDivElement>(null);
 
     const usernameform = useForm<z.infer<typeof usernameFormSchema>>({
         resolver: zodResolver(usernameFormSchema),
@@ -234,15 +232,6 @@ export default function GamePage() {
             setIsMyTurn(currentTurn === currentPlayer?.color);
         }
     }, [currentTurn, currentPlayer, isSpectator]);
-
-    useEffect(() => {
-        if (viewportRef.current) {
-            viewportRef.current.scrollTo({
-                top: viewportRef.current.scrollHeight,
-                behavior: "smooth",
-            });
-        }
-    }, [moves]);
 
     const addMove = (from: string, to: string, playerName: string) => {
         setMoves((prevMoves) => {
@@ -612,42 +601,13 @@ export default function GamePage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className='h-48 p-0'>
-                                    <ScrollArea
-                                        className='h-full rounded-md'
-                                        viewportRef={viewportRef}
-                                    >
-                                        <div className='px-4'>
-                                            {moves.map((move) => (
-                                                <div
-                                                    key={move.id}
-                                                    className={`flex items-center justify-between py-1 px-2 rounded-md transition-colors mt-1 ${
-                                                        isSpectator
-                                                            ? "bg-gray-50 dark:bg-gray-700/50 text-gray-800 dark:text-gray-200"
-                                                            : move.player ===
-                                                                currentPlayer?.username
-                                                              ? "bg-blue-50 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
-                                                              : "bg-red-50 dark:bg-red-900/50 text-red-800 dark:text-red-200"
-                                                    }`}
-                                                >
-                                                    <span className='text-sm font-medium w-1/4'>
-                                                        {move.id}.
-                                                        <span className='ml-1 text-xs'>
-                                                            {move.player}
-                                                        </span>
-                                                    </span>
-                                                    <span className='font-mono text-sm w-3/4 text-right'>
-                                                        {move.notation}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                            {moves.length === 0 && (
-                                                <p className='text-center text-sm text-gray-500 dark:text-gray-400 py-4'>
-                                                    No moves played yet.
-                                                </p>
-                                            )}
-                                            <div ref={moveHistoryEndRef} />
-                                        </div>
-                                    </ScrollArea>
+                                    <MoveHistory
+                                        moves={moves}
+                                        currentPlayerUsername={
+                                            currentPlayer?.username
+                                        }
+                                        isSpectator={isSpectator}
+                                    />
                                 </CardContent>
                             </Card>
 
