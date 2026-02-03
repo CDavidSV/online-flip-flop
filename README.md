@@ -27,7 +27,6 @@ An online multiplayer implementation of FlipFlop, the abstract strategy board ga
 ### Backend
 
 - Go
-- Docker
 
 ## Local Development
 
