@@ -34,7 +34,7 @@ export function FlipFlop({
         squareSecondaryColor: "#fff695",
     };
 
-    let goals = type === GameType.FLIPFLOP_3x3 ? [1, 7] : [2, 22];
+    const goals = type === GameType.FLIPFLOP_3x3 ? [1, 7] : [2, 22];
     const cols = ["A", "B", "C", "D", "E"];
 
     const {
