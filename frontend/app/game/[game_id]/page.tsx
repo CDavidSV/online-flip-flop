@@ -515,7 +515,7 @@ export default function GamePage() {
                             </div>
                         </div>
 
-                        <div className='flex flex-col w-full md:w-96 gap-4 mb-4 md:mb-0 md:min-h-0'>
+                        <div className='flex flex-col w-full md:w-96 gap-4 mb-4 md:mb-0 md:min-h-0 overflow-y-auto'>
                             <Card className='flex-shrink-0'>
                                 <CardHeader>
                                     <CardTitle className='flex items-center justify-between'>

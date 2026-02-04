@@ -82,7 +82,7 @@ export function Chat({ initialMessages }: { initialMessages?: ChatMessage[] }) {
     }, [chatMessages]);
 
     return (
-        <Card className='flex-shrink-0 md:flex-1 md:min-h-0 flex flex-col pt-6 pb-0'>
+        <Card className='md:flex-1 md:min-h-96 flex flex-col pt-6 pb-0'>
             <CardHeader>
                 <CardTitle className='flex items-center text-base'>
                     <MessageSquare size={16} className='mr-2' />
