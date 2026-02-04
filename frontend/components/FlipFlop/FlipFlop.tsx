@@ -22,6 +22,13 @@ export interface BoardProps {
 
 const TURN_INDICATOR_DURATION = 2000; // Duration in milliseconds
 
+const colors = {
+    squarePrimaryColor: "#891c7e",
+    squareSecondaryColor: "#fff695",
+};
+
+const cols = ["A", "B", "C", "D", "E"];
+
 export function FlipFlop({
     type,
     side,
@@ -29,14 +36,7 @@ export function FlipFlop({
     onMoveMade,
 }: BoardProps) {
     const router = useRouter();
-    const colors = {
-        squarePrimaryColor: "#891c7e",
-        squareSecondaryColor: "#fff695",
-    };
-
     const goals = type === GameType.FLIPFLOP_3x3 ? [1, 7] : [2, 22];
-    const cols = ["A", "B", "C", "D", "E"];
-
     const {
         gameStatus,
         currentTurn,
@@ -50,10 +50,17 @@ export function FlipFlop({
 
     const [gameBoard, setGameBoard] = useState<(FlipFlopPiece | null)[][]>([]);
     const [validMoves, setValidMoves] = useState<[number, number][]>([]);
-    const [selectedPiece, setSelectedPiece] = useState<FlipFlopPiece | null>(null);
-    const [draggedPiece, setDraggedPiece] = useState<FlipFlopPiece | null>(null);
-    const [showTurnIndicator, setShowTurnIndicator] = useState(false);
+
+    const [selectedPiece, setSelectedPiece] = useState<FlipFlopPiece | null>(
+        null,
+    );
+    const [draggedPiece, setDraggedPiece] = useState<FlipFlopPiece | null>(
+        null,
+    );
+
+    const [turnIndicator, setTurnIndicator] = useState(false);
     const [isFadingOut, setIsFadingOut] = useState(false);
+
     const [showGameEnd, setShowGameEnd] = useState(false);
     const [gameEndResult, setGameEndResult] = useState<{
         winner: PlayerColor | null;
@@ -71,15 +78,7 @@ export function FlipFlop({
                 setSelectedPiece(null);
                 setValidMoves([]);
 
-                // Show turn indicator
-                setIsFadingOut(false);
-                setShowTurnIndicator(true);
-                setTimeout(() => {
-                    setIsFadingOut(true);
-                }, TURN_INDICATOR_DURATION - 300);
-                setTimeout(() => {
-                    setShowTurnIndicator(false);
-                }, TURN_INDICATOR_DURATION);
+                showTurnIndicator();
             }
         });
 
@@ -110,17 +109,21 @@ export function FlipFlop({
         if (gameStatus === "ongoing") {
             // Show turn indicator when game starts
             setTimeout(() => {
-                setIsFadingOut(false);
-                setShowTurnIndicator(true);
-                setTimeout(() => {
-                    setIsFadingOut(true);
-                }, TURN_INDICATOR_DURATION - 300);
-                setTimeout(() => {
-                    setShowTurnIndicator(false);
-                }, TURN_INDICATOR_DURATION);
+                showTurnIndicator();
             }, 500);
         }
     }, [gameStatus]);
+
+    const showTurnIndicator = () => {
+        setIsFadingOut(false);
+        setTurnIndicator(true);
+        setTimeout(() => {
+            setIsFadingOut(true);
+        }, TURN_INDICATOR_DURATION - 300);
+        setTimeout(() => {
+            setTurnIndicator(false);
+        }, TURN_INDICATOR_DURATION);
+    };
 
     const createBoard = () => {
         const board: (FlipFlopPiece | null)[][] = [];
@@ -461,7 +464,7 @@ export function FlipFlop({
     return (
         <div className='relative w-full h-full aspect-square'>
             {/* Turn Indicator Banner */}
-            {showTurnIndicator && (
+            {turnIndicator && (
                 <div
                     className={cn(
                         "absolute top-0 left-1/2 -translate-x-1/2 z-50 transition-all duration-300",

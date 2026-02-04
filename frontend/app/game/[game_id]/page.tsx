@@ -4,12 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Flag } from "lucide-react";
-import {
-    ChatMessage,
-    GameMoveMsg,
-    JoinGameResponse,
-    PlayerColor,
-} from "@/types/types";
 import { useParams, useRouter } from "next/navigation";
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
@@ -49,6 +43,12 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
+import {
+    ChatMessage,
+    GameMoveMsg,
+    JoinGameResponse,
+    PlayerColor,
+} from "@/types/types";
 
 const usernameFormSchema = z.object({
     username: z.string().min(3, "Username must be at least 3 characters long"),
@@ -74,13 +74,10 @@ export default function GamePage() {
         username,
     } = useGameRoom();
 
-    const [moves, setMoves] = useState<
-        { id: number; player: string; notation: string }[]
-    >([]);
     const [copied, setCopied] = useState(false);
-    const [gameEnded, setGameEnded] = useState(false);
-    const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
-    const [forfeitDialogOpen, setForfeitDialogOpen] = useState(false);
+    const [openDialog, setOpenDialog] = useState<"username" | "forfeit" | null>(
+        null,
+    );
     const [joinLoading, setJoinLoading] = useState(false);
     const [forfeitLoading, setForfeitLoading] = useState(false);
     const [showLoadingOverlay, setShowLoadingOverlay] = useState(true);
@@ -88,13 +85,20 @@ export default function GamePage() {
         "Connecting to server...",
     );
     const [attemptedRejoin, setAttemptedRejoin] = useState(false);
+    const [hasLeftRoom, setHasLeftRoom] = useState(false);
+
+    // Initial game variables
+    const [moves, setMoves] = useState<
+        { id: number; player: string; notation: string }[]
+    >([]);
     const [initialGameBoard, setInitialGameBoard] = useState<
         string | undefined
     >(undefined);
     const [initialChatMessages, setInitialChatMessages] = useState<
         ChatMessage[]
     >([]);
-    const [isMyTurn, setIsMyTurn] = useState<boolean>(false);
+
+    const isMyTurn = !isSpectator && currentTurn === currentPlayer?.color;
 
     const usernameform = useForm<z.infer<typeof usernameFormSchema>>({
         resolver: zodResolver(usernameFormSchema),
@@ -160,7 +164,10 @@ export default function GamePage() {
     );
 
     useEffect(() => {
-        if (gameEnded) return;
+        if (gameStatus === "closed") {
+            setHasLeftRoom(true);
+            return;
+        }
 
         // Redirect to home if game_id is not provided
         if (!game_id || game_id.length !== 4) {
@@ -174,6 +181,9 @@ export default function GamePage() {
                 setShowLoadingOverlay(false);
                 return;
             }
+
+            // Don't attempt to rejoin if player left the room
+            if (hasLeftRoom) return;
 
             // First, attempt to rejoin without username (for reconnecting players)
             if (!attemptedRejoin) {
@@ -194,7 +204,7 @@ export default function GamePage() {
                             isErrorCode(error, ErrorCode.USERNAME_REQUIRED)
                         ) {
                             // Username required
-                            setUsernameDialogOpen(true);
+                            setOpenDialog("username");
                         } else {
                             setShowLoadingOverlay(false);
                             handleRoomError(error);
@@ -211,27 +221,11 @@ export default function GamePage() {
         game_id,
         router,
         attemptedRejoin,
-        gameEnded,
+        hasLeftRoom,
+        gameStatus,
         joinRoom,
         handleRoomError,
     ]);
-
-    useEffect(() => {
-        if (gameStatus === "closed") {
-            setGameEnded(true);
-        }
-    }, [gameStatus]);
-
-    // Sync isMyTurn with currentTurn from context
-    useEffect(() => {
-        if (
-            currentTurn !== null &&
-            currentPlayer?.color !== null &&
-            !isSpectator
-        ) {
-            setIsMyTurn(currentTurn === currentPlayer?.color);
-        }
-    }, [currentTurn, currentPlayer, isSpectator]);
 
     const addMove = (from: string, to: string, playerName: string) => {
         setMoves((prevMoves) => {
@@ -282,22 +276,12 @@ export default function GamePage() {
                     payload.move.to,
                     player?.username || "Unknown",
                 );
-
-                // Update current turn based on current player color
-                setIsMyTurn((prevIsMyTurn) => {
-                    if (isSpectator) return prevIsMyTurn;
-                    return currentPlayer?.color !== payload.color;
-                });
             }
         });
 
         const cleanupStart = on("start", () => {
-            // Game has started, check if it's your turn unless a spectator
-            if (isSpectator) return;
-
-            const myTurn = currentPlayer?.color === PlayerColor.WHITE;
-            setIsMyTurn(myTurn);
-            setCurrentTurn(PlayerColor.WHITE); // White always starts
+            // Game has started, white always starts
+            setCurrentTurn(PlayerColor.WHITE);
         });
 
         return () => {
@@ -313,19 +297,14 @@ export default function GamePage() {
         setCurrentTurn,
     ]);
 
-    const copyRoomId = () => {
-        const textarea = document.createElement("textarea");
-        textarea.value = game_id;
-        document.body.appendChild(textarea);
-        textarea.select();
+    const copyRoomId = async () => {
         try {
-            navigator.clipboard.writeText(game_id);
+            await navigator.clipboard.writeText(game_id);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
             console.error("Failed to copy text: ", err);
         }
-        document.body.removeChild(textarea);
     };
 
     const usernameFormSubmit = (data: z.infer<typeof usernameFormSchema>) => {
@@ -339,7 +318,7 @@ export default function GamePage() {
         joinRoom(game_id, data.username)
             .then((value: JoinGameResponse) => {
                 setShowLoadingOverlay(false);
-                setUsernameDialogOpen(false);
+                setOpenDialog(null);
                 setJoinLoading(false);
                 setInitialChatMessages(value.messages || []);
 
@@ -356,7 +335,7 @@ export default function GamePage() {
     };
 
     const handleForfeit = () => {
-        setForfeitDialogOpen(true);
+        setOpenDialog("forfeit");
     };
 
     const confirmForfeit = () => {
@@ -365,7 +344,7 @@ export default function GamePage() {
         forfeitGame()
             .then(() => {
                 toast.success("You have forfeited the game");
-                setForfeitDialogOpen(false);
+                setOpenDialog(null);
             })
             .catch((error: unknown) => {
                 setForfeitLoading(false);
@@ -380,8 +359,6 @@ export default function GamePage() {
 
     const handleMoveMade = (from: string, to: string) => {
         addMove(from, to, currentPlayer?.username || "Unknown");
-
-        setIsMyTurn(false);
     };
 
     return (
@@ -392,7 +369,7 @@ export default function GamePage() {
                     <p className='text-muted-foreground'>{loadingOverlayMsg}</p>
                 </div>
             )}
-            <Dialog open={usernameDialogOpen}>
+            <Dialog open={openDialog === "username"}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Join Game</DialogTitle>
@@ -452,8 +429,8 @@ export default function GamePage() {
                 </DialogContent>
             </Dialog>
             <Dialog
-                open={forfeitDialogOpen}
-                onOpenChange={setForfeitDialogOpen}
+                open={openDialog === "forfeit"}
+                onOpenChange={(open) => setOpenDialog(open ? "forfeit" : null)}
             >
                 <DialogContent>
                     <DialogHeader>
@@ -475,7 +452,7 @@ export default function GamePage() {
                         <Button
                             className='w-full'
                             variant='outline'
-                            onClick={() => setForfeitDialogOpen(false)}
+                            onClick={() => setOpenDialog(null)}
                             disabled={forfeitLoading}
                         >
                             Cancel
