@@ -30,8 +30,10 @@ var (
 	ErrNotYourTurn          = errors.New("not_your_turn")
 	ErrIllegalMove          = errors.New("illegal_move")
 	ErrGameEnded            = errors.New("game_ended")
+	ErrGameNotEnded         = errors.New("game_not_ended")
 	ErrPlayerNotActive      = errors.New("player_not_active")
 	ErrIDGenerationFailed   = errors.New("id_generation_failed")
+	ErrUnauthorizedAction   = errors.New("unauthorized_action")
 )
 
 // Returns an AppError instance with the given error code and optional details.

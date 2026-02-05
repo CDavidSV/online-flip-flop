@@ -276,12 +276,13 @@ func (s *Server) handleForfeit(socket *gws.Conn, msg IncomingMessage) {
 		return
 	}
 
+	socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeAck, nil, msg.RequestID), func(err error) {
+		if err != nil {
+			s.logger.Error("Failed to send forfeit acknowledgment", "error", err)
+		}
+	})
+
 	if room.IsClosed() {
-		socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeAck, nil, msg.RequestID), func(err error) {
-			if err != nil {
-				s.logger.Error("Failed to send forfeit acknowledgment", "error", err)
-			}
-		})
 		s.DeleteGameRoom(room)
 	}
 }
@@ -318,6 +319,40 @@ func (s *Server) handleSendMessage(socket *gws.Conn, msg IncomingMessage) {
 
 	if err := room.HandleChatMessage(clientID, msg.RequestID, payload.Content); err != nil {
 		s.writeError(socket, err, msg.RequestID)
+	}
+}
+
+func (s *Server) handleRequestRematch(socket *gws.Conn, msg IncomingMessage) {
+	clientID, room, hasRoom := s.getClientContext(socket)
+	if !hasRoom {
+		s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
+		return
+	}
+
+	if err := room.RequestRematch(clientID); err != nil {
+		s.writeError(socket, err, msg.RequestID)
+		return
+	}
+
+	if err := socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeAck, nil, msg.RequestID)); err != nil {
+		s.logger.Error("Failed to send acknowledgment", "error", err)
+	}
+}
+
+func (s *Server) handleCancelRematch(socket *gws.Conn, msg IncomingMessage) {
+	clientID, room, hasRoom := s.getClientContext(socket)
+	if !hasRoom {
+		s.writeError(socket, apperrors.ErrNotInGame, msg.RequestID)
+		return
+	}
+
+	if err := room.CancelRematchRequest(clientID); err != nil {
+		s.writeError(socket, err, msg.RequestID)
+		return
+	}
+
+	if err := socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeAck, nil, msg.RequestID)); err != nil {
+		s.logger.Error("Failed to send acknowledgment", "error", err)
 	}
 }
 
@@ -401,6 +436,10 @@ func (s *Server) OnMessage(socket *gws.Conn, message *gws.Message) {
 		s.handleGameState(socket, msg)
 	case MsgTypeSendMessage:
 		s.handleSendMessage(socket, msg)
+	case MsgTypeRematch:
+		s.handleRequestRematch(socket, msg)
+	case MsgTypeCancelRematch:
+		s.handleCancelRematch(socket, msg)
 	default:
 		s.writeError(socket, apperrors.ErrInvalidMsgType, msg.RequestID)
 	}

@@ -15,11 +15,12 @@ type Status string
 
 // Represents a player in the room.
 type PlayerSlot struct {
-	ID       string           `json:"id"`
-	Username string           `json:"username"`
-	Color    games.PlayerSide `json:"color"`
-	IsAI     bool             `json:"is_ai"`
-	IsActive bool             `json:"is_active"`
+	ID           string           `json:"id"`
+	Username     string           `json:"username"`
+	Color        games.PlayerSide `json:"color"`
+	IsAI         bool             `json:"is_ai"`
+	IsActive     bool             `json:"is_active"`
+	wantsRematch bool             `json:"-"`
 }
 
 // Holds the client connection and whether they are a spectator or not.
@@ -62,6 +63,7 @@ type GameRoom struct {
 const (
 	StatusWaiting Status = "waiting_for_players" // Initial state, waiting for players to join.
 	StatusOngoing Status = "ongoing"             // Players have joined and the game has started.
+	StatusEnded   Status = "ended"               // Game has ended but room is still open.
 	StatusClosed  Status = "closed"              // Game has ended or room is closed (no active players).
 )
 
@@ -105,7 +107,7 @@ func (gr *GameRoom) broadcastGameUpdate(action MsgType, payload any, skipID *str
 // Called when the game ends to update room status and notify connected clients.
 // Requires a Write lock before calling.
 func (gr *GameRoom) endGame(reason string, winner games.PlayerSide) {
-	gr.status = StatusClosed
+	gr.status = StatusEnded
 	payload := types.JSONMap{"reason": reason}
 	if winner != -1 {
 		payload["winner"] = winner
@@ -184,10 +186,6 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
-	if gr.Game.IsGameEnded() {
-		return false, apperrors.ErrGameEnded
-	}
-
 	if gr.status == StatusClosed {
 		return false, apperrors.ErrRoomClosed
 	}
@@ -212,7 +210,8 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 
 		// Notify player rejoined
 		gr.broadcastGameUpdate(MsgPlayerRejoined, types.JSONMap{
-			"player_id": id,
+			"player_id":  id,
+			"game_state": gr.gameState(),
 		}, &id)
 
 		return false, nil
@@ -245,11 +244,12 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 
 	if assignedSlot != nil {
 		*assignedSlot = &PlayerSlot{
-			ID:       id,
-			Username: username,
-			Color:    color,
-			IsAI:     false,
-			IsActive: true,
+			ID:           id,
+			Username:     username,
+			Color:        color,
+			IsAI:         false,
+			IsActive:     true,
+			wantsRematch: false,
 		}
 		return false, nil
 	}
@@ -271,7 +271,11 @@ func (gr *GameRoom) LeaveRoom(id string) {
 	player := gr.getPlayer(id)
 	if player != nil {
 		player.IsActive = false
+		player.wantsRematch = false
 
+		gr.broadcastGameUpdate(MsgTypeRematchCancelled, types.JSONMap{
+			"player_id": id,
+		}, &id)
 		gr.broadcastGameUpdate(MsgPlayerLeftRoom, types.JSONMap{
 			"player_id": id,
 		}, nil)
@@ -296,7 +300,7 @@ func (gr *GameRoom) StartGame() bool {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
-	if gr.status == StatusOngoing || gr.status == StatusClosed {
+	if gr.status == StatusOngoing || gr.status == StatusClosed || gr.status == StatusEnded {
 		return false
 	}
 
@@ -450,6 +454,58 @@ func (gr *GameRoom) HandleChatMessage(clientID, requestID, message string) error
 		}
 	}
 
+	return nil
+}
+
+func (gr *GameRoom) RequestRematch(clientID string) error {
+	gr.mu.Lock()
+	defer gr.mu.Unlock()
+
+	if gr.status != StatusEnded {
+		return apperrors.ErrGameNotEnded
+	}
+
+	player := gr.getPlayer(clientID)
+	if player == nil {
+		return apperrors.ErrUnauthorizedAction
+	}
+
+	player.wantsRematch = true
+
+	// If both players want a rematch, reset the game
+	if gr.player1.wantsRematch && gr.player2.wantsRematch {
+		newGame, err := games.NewGame(gr.GameType)
+		if err != nil {
+			return err
+		}
+		gr.Game = newGame
+		gr.status = StatusOngoing
+		gr.player1.wantsRematch = false
+		gr.player2.wantsRematch = false
+		gr.broadcastGameUpdate(MsgTypeGameStart, gr.gameState(), nil)
+	} else {
+		// Notify that a rematch has been requested
+		gr.broadcastGameUpdate(MsgTypeRematchRequested, types.JSONMap{
+			"player_id": clientID,
+		}, &clientID)
+	}
+
+	return nil
+}
+
+func (gr *GameRoom) CancelRematchRequest(clientID string) error {
+	gr.mu.Lock()
+	defer gr.mu.Unlock()
+
+	player := gr.getPlayer(clientID)
+	if player == nil {
+		return apperrors.ErrUnauthorizedAction
+	}
+	player.wantsRematch = false
+
+	gr.broadcastGameUpdate(MsgTypeRematchCancelled, types.JSONMap{
+		"player_id": clientID,
+	}, &clientID)
 	return nil
 }
 
