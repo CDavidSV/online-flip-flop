@@ -119,6 +119,7 @@ interface Player {
     username: string;
     color: PlayerColor | null;
     is_ai: boolean;
+    is_active: boolean;
 }
 
 interface FlipFlopPiece {
@@ -166,6 +167,10 @@ interface PlayerRequestedRematchMsg {
     player_id: string;
 }
 
+interface PlayerLeftMsg {
+    player_id: string;
+}
+
 export { GameType, GameMode, PlayerColor, PieceType, ErrorCode };
 export type {
     CreateGameResponse,
@@ -186,4 +191,5 @@ export type {
     MoveSnapshot,
     ChatMessage,
     PlayerRequestedRematchMsg,
+    PlayerLeftMsg,
 };

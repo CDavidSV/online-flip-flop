@@ -154,9 +154,24 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
     }, [username]);
 
     useEffect(() => {
-        const cleanupPlayerLeft = on("player_left", () => {
-            setGameStatus("waiting_for_players");
-        });
+        const cleanupPlayerLeft = on(
+            "player_left",
+            (payload: PlayerRejoinMsg) => {
+                setGameStatus("waiting_for_players");
+
+                // Find the player that left by id and update their is_active status
+                setCurrentPlayer((prev) =>
+                    prev && prev.id === payload.player_id
+                        ? { ...prev, is_active: false }
+                        : prev,
+                );
+                setOpponentPlayer((prev) =>
+                    prev && prev.id === payload.player_id
+                        ? { ...prev, is_active: false }
+                        : prev,
+                );
+            },
+        );
 
         const cleanupStart = on("start", (payload: any) => {
             if (!payload && !payload.players) {
@@ -175,6 +190,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                     username: current.username,
                     color: current.color,
                     is_ai: current.is_ai,
+                    is_active: current.is_active,
                 });
             }
 
@@ -184,6 +200,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                     username: opponent.username,
                     color: opponent.color,
                     is_ai: opponent.is_ai,
+                    is_active: opponent.is_active,
                 });
             }
 
@@ -197,9 +214,24 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
             setGameStatus("ended");
         });
 
-        const cleanupRejoin = on("player_rejoined", (payload: PlayerRejoinMsg) => {
-            setGameStatus(payload.game_state.status);
-        });
+        const cleanupRejoin = on(
+            "player_rejoined",
+            (payload: PlayerRejoinMsg) => {
+                // Find the player that rejoined by id and update their is_active status
+                setCurrentPlayer((prev) =>
+                    prev && prev.id === payload.player_id
+                        ? { ...prev, is_active: true }
+                        : prev,
+                );
+                setOpponentPlayer((prev) =>
+                    prev && prev.id === payload.player_id
+                        ? { ...prev, is_active: true }
+                        : prev,
+                );
+
+                setGameStatus(payload.game_state.status);
+            },
+        );
 
         // Cleanup event listeners
         return () => {
@@ -277,6 +309,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                 username,
                 color: null,
                 is_ai: false,
+                is_active: true,
             });
 
             return payload.room_id;

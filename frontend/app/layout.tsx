@@ -5,6 +5,7 @@ import { WebsocketProvider } from "@/context/wsContext";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PreloadImages } from "@/components/PreloadImages";
+import { DevOverlay } from "@/components/DevOverlay/DevOverlay";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,7 +41,10 @@ export default function RootLayout({
                     disableTransitionOnChange
                 >
                     <WebsocketProvider>
-                        <GameRoomProvider>{children}</GameRoomProvider>
+                        <GameRoomProvider>
+                            {children}
+                            <DevOverlay />
+                        </GameRoomProvider>
                         <PreloadImages />
                     </WebsocketProvider>
                     <Toaster position='top-right' />
