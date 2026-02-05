@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, Flag } from "lucide-react";
+import { Copy, Check, Flag, LogOut } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
@@ -272,7 +272,8 @@ export default function GamePage() {
                 } else {
                     toast.error("An error occurred while forfeiting the game");
                 }
-            }).finally(() => {
+            })
+            .finally(() => {
                 setOpenDialog(null);
                 setForfeitLoading(false);
             });
@@ -702,7 +703,8 @@ export default function GamePage() {
                             )}
 
                             <div className='flex items-center justify-center text-lg font-semibold text-red-500 dark:text-red-400 mb-4'>
-                                {opponentPlayer && gameStatus !== "waiting_for_players"
+                                {opponentPlayer &&
+                                gameStatus !== "waiting_for_players"
                                     ? opponentPlayer?.username
                                     : "Waiting for opponent player to join..."}
                             </div>
@@ -764,7 +766,7 @@ export default function GamePage() {
                                         </Button>
                                     </div>
                                 </CardContent>
-                                <CardFooter className='pt-0'>
+                                <CardFooter className='pt-0 flex flex-col gap-2'>
                                     {!isSpectator && gameStatus !== "ended" && (
                                         <Button
                                             onClick={handleForfeit}
@@ -792,6 +794,14 @@ export default function GamePage() {
                                                   : "Rematch?"}
                                         </Button>
                                     )}
+                                    <Button
+                                        onClick={() => handleReturnToMenu()}
+                                        variant='outline'
+                                        className='w-full text-white rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-[1.01]'
+                                    >
+                                        <LogOut size={18} className='mr-2' />
+                                        Leave Game
+                                    </Button>
                                 </CardFooter>
                             </Card>
 
