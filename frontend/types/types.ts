@@ -47,10 +47,12 @@ type WSEventType =
     | "chat"
     | "end"
     | "player_rejoined"
-    | "joined";
+    | "joined"
+    | "rematch_requested"
+    | "rematch_cancelled";
 
 // Game state types
-type GameStatus = "waiting_for_players" | "ongoing" | "closed";
+type GameStatus = "waiting_for_players" | "ongoing" | "closed" | "ended";
 
 interface CreateGameRequest {
     username: string;
@@ -130,6 +132,7 @@ interface FlipFlopPiece {
 
 interface PlayerRejoinMsg {
     player_id: string;
+    game_state: GameState;
 }
 
 interface GameEndMsg {
@@ -159,6 +162,10 @@ interface ChatMessage {
     message: string;
 }
 
+interface PlayerRequestedRematchMsg {
+    player_id: string;
+}
+
 export { GameType, GameMode, PlayerColor, PieceType, ErrorCode };
 export type {
     CreateGameResponse,
@@ -178,4 +185,5 @@ export type {
     GameMoveMsg,
     MoveSnapshot,
     ChatMessage,
+    PlayerRequestedRematchMsg,
 };

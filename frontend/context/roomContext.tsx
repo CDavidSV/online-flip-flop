@@ -12,6 +12,7 @@ import {
     GameStatus,
     Player,
     PlayerColor,
+    PlayerRejoinMsg,
 } from "@/types/types";
 import {
     createContext,
@@ -193,11 +194,11 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         });
 
         const cleanupEnd = on("end", () => {
-            setGameStatus("closed");
+            setGameStatus("ended");
         });
 
-        const cleanupRejoin = on("player_rejoined", () => {
-            setGameStatus("ongoing");
+        const cleanupRejoin = on("player_rejoined", (payload: PlayerRejoinMsg) => {
+            setGameStatus(payload.game_state.status);
         });
 
         // Cleanup event listeners

@@ -2,14 +2,12 @@ import { useGameRoom } from "@/context/roomContext";
 import { useWebSocket } from "@/context/wsContext";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
     FlipFlopPiece,
     GameType,
     PlayerColor,
     PieceType,
-    GameEndMsg,
     GameMoveMsg,
 } from "@/types/types";
 
@@ -35,16 +33,12 @@ export function FlipFlop({
     initialBoardState,
     onMoveMade,
 }: BoardProps) {
-    const router = useRouter();
     const goals = type === GameType.FLIPFLOP_3x3 ? [1, 7] : [2, 22];
     const {
         gameStatus,
         currentTurn,
         setCurrentTurn,
-        resetState,
         isSpectator,
-        currentPlayer,
-        opponentPlayer,
     } = useGameRoom();
     const { sendRequest, on } = useWebSocket();
 
@@ -60,13 +54,6 @@ export function FlipFlop({
 
     const [turnIndicator, setTurnIndicator] = useState(false);
     const [isFadingOut, setIsFadingOut] = useState(false);
-
-    const [showGameEnd, setShowGameEnd] = useState(false);
-    const [gameEndResult, setGameEndResult] = useState<{
-        winner: PlayerColor | null;
-        reason: string;
-    } | null>(null);
-    const [isGameEndFadingOut, setIsGameEndFadingOut] = useState(false);
     const boardSize = type === GameType.FLIPFLOP_3x3 ? 3 : 5;
 
     useEffect(() => {
@@ -82,14 +69,13 @@ export function FlipFlop({
             }
         });
 
-        const cleanupEnd = on("end", (payload: GameEndMsg) => {
-            setGameEndResult({
-                winner: payload.winner,
-                reason: payload.reason || "normal",
-            });
+        const cleanupStart = on("start", () => {
+            createBoard();
 
-            setIsGameEndFadingOut(false);
-            setShowGameEnd(true);
+            // Show turn indicator when game starts
+            setTimeout(() => {
+                showTurnIndicator();
+            }, 500);
         });
 
         if (initialBoardState) {
@@ -101,7 +87,7 @@ export function FlipFlop({
 
         return () => {
             cleanupMove();
-            cleanupEnd();
+            cleanupStart();
         };
     }, [side, on]);
 
@@ -456,11 +442,6 @@ export function FlipFlop({
         });
     };
 
-    const handleReturnToMenu = () => {
-        resetState();
-        router.push("/");
-    };
-
     return (
         <div className='relative w-full h-full aspect-square'>
             {/* Turn Indicator Banner */}
@@ -508,106 +489,6 @@ export function FlipFlop({
                 </div>
             )}
 
-            {/* Game End Popup */}
-            {showGameEnd && gameEndResult && (
-                <div
-                    className={cn(
-                        "fixed inset-0 flex items-center justify-center z-50 transition-all duration-300",
-                        isGameEndFadingOut
-                            ? "animate-out fade-out zoom-out-95"
-                            : "animate-in fade-in zoom-in-95",
-                    )}
-                >
-                    {/* Backdrop */}
-                    <div className='fixed inset-0 bg-black/60 backdrop-blur-sm' />
-
-                    {/* Popup Content */}
-                    <div className='relative z-10'>
-                        {/* Draw Result */}
-                        {gameEndResult.reason === "draw" && (
-                            <div className='bg-gradient-to-br from-gray-400 to-gray-600 rounded-3xl shadow-2xl border-8 border-gray-300 p-12 text-center min-w-[400px] animate-in spin-in-180 duration-700'>
-                                <h2 className='text-5xl font-black text-white mb-4 tracking-wider'>
-                                    DRAW!
-                                </h2>
-                                <p className='text-2xl text-gray-100 font-semibold'>
-                                    Well Played!
-                                </p>
-                                <button
-                                    onClick={handleReturnToMenu}
-                                    className='mt-8 px-8 py-4 bg-white text-gray-800 font-bold text-xl rounded-xl hover:bg-gray-100 transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer'
-                                >
-                                    Return to Menu
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Spectator View - Game Over */}
-                        {gameEndResult.reason !== "draw" && isSpectator && (
-                            <div className='bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl shadow-2xl border-8 border-yellow-200 p-12 text-center min-w-[400px] animate-in slide-in-from-bottom-10 duration-700'>
-                                <h2 className='text-6xl font-black text-yellow-900 mb-4 tracking-wider drop-shadow-lg'>
-                                    GAME OVER
-                                </h2>
-                                <p className='text-3xl text-yellow-800 font-bold'>
-                                    {gameEndResult.winner ===
-                                    currentPlayer?.color
-                                        ? currentPlayer?.username
-                                        : opponentPlayer?.username}{" "}
-                                    Wins!
-                                </p>
-                                <button
-                                    onClick={handleReturnToMenu}
-                                    className='mt-8 px-8 py-4 bg-yellow-900 text-yellow-100 font-bold text-xl rounded-xl hover:bg-yellow-800 transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer'
-                                >
-                                    Return to Menu
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Player Victory */}
-                        {gameEndResult.reason !== "draw" &&
-                            !isSpectator &&
-                            gameEndResult.winner === side && (
-                                <div className='bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl shadow-2xl border-8 border-yellow-200 p-12 text-center min-w-[400px] animate-in slide-in-from-bottom-10 duration-700'>
-                                    <h2 className='text-6xl font-black text-yellow-900 mb-4 tracking-wider drop-shadow-lg'>
-                                        VICTORY!
-                                    </h2>
-                                    <p className='text-3xl text-yellow-800 font-bold'>
-                                        You Win!
-                                    </p>
-                                    <button
-                                        onClick={handleReturnToMenu}
-                                        className='mt-8 px-8 py-4 bg-yellow-900 text-yellow-100 font-bold text-xl rounded-xl hover:bg-yellow-800 transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer'
-                                    >
-                                        Return to Menu
-                                    </button>
-                                </div>
-                            )}
-
-                        {/* Player Defeat */}
-                        {gameEndResult.reason !== "draw" &&
-                            !isSpectator &&
-                            gameEndResult.winner !== side && (
-                                <div className='bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-3xl shadow-2xl border-8 border-red-400 p-12 text-center min-w-[400px] animate-in slide-in-from-top-10 duration-700'>
-                                    <h2 className='text-6xl font-black text-white mb-4 tracking-wider drop-shadow-lg'>
-                                        DEFEAT
-                                    </h2>
-                                    <p className='text-3xl text-red-100 font-bold'>
-                                        You Lose
-                                    </p>
-                                    <p className='text-xl text-red-200 mt-4'>
-                                        Better luck next time!
-                                    </p>
-                                    <button
-                                        onClick={handleReturnToMenu}
-                                        className='mt-8 px-8 py-4 bg-white text-red-600 font-bold text-xl rounded-xl hover:bg-red-50 transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer'
-                                    >
-                                        Return to Menu
-                                    </button>
-                                </div>
-                            )}
-                    </div>
-                </div>
-            )}
             <div
                 className={cn(
                     "w-full h-full grid gap-0.5 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 shadow-inner border-4 border-gray-300 dark:border-gray-600",
