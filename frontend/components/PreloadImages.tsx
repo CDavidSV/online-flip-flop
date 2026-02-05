@@ -11,13 +11,10 @@ export function PreloadImages() {
             "/assets/pieces/white_rook.svg",
         ];
 
+        // Preload images by creating Image objects
         images.forEach((src) => {
-            const link = document.createElement("link");
-            link.rel = "preload";
-            link.as = "image";
-            link.type = "image/svg+xml";
-            link.href = src;
-            document.head.appendChild(link);
+            const img = new Image();
+            img.src = src;
         });
     }, []);
 
