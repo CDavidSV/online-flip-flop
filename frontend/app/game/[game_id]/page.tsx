@@ -74,7 +74,6 @@ export default function GamePage() {
         isSpectator,
         activePlayer,
         username,
-        resetState,
     } = useGameRoom();
 
     const [copied, setCopied] = useState(false);
@@ -284,7 +283,6 @@ export default function GamePage() {
     };
 
     const handleReturnToMenu = () => {
-        resetState();
         setShowGameEnd(false);
         router.push("/");
     };
@@ -316,6 +314,12 @@ export default function GamePage() {
     };
 
     useEffect(() => {
+        console.log("Game Status:", gameStatus);
+        console.log("In Room:", inRoom);
+        console.log("Is Connected:", isConnected);
+        console.log("Has Left Room:", hasLeftRoom);
+        console.log("Attempted Rejoin:", attemptedRejoin);
+        console.log("Game ID:", game_id);
         if (gameStatus === "closed") {
             setHasLeftRoom(true);
             return;

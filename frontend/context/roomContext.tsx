@@ -227,6 +227,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
     // Resets the room state
     const resetState = () => {
         setRoomId(null);
+        setInRoom(false);
         setIsSpectator(false);
         setGameType(null);
         setGameMode(null);
