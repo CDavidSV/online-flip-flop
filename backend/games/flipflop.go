@@ -2,9 +2,12 @@ package games
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
+	"github.com/CDavidSV/online-flip-flop/config"
 	"github.com/CDavidSV/online-flip-flop/internal/apperrors"
+	"github.com/labstack/gommon/log"
 )
 
 type FlipFlopType int
@@ -377,6 +380,8 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 		To:       moveData.To,
 	})
 
+	g.printBoard(fen)
+
 	// Check for game end conditions
 	// After the move, check if the current player has any pieces in their goal
 	pieceInGoal := g.board[player.goal.Row][player.goal.Col]
@@ -408,6 +413,29 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	}
 
 	return nil
+}
+
+func (g *FlipFlop) printBoard(fenStr string) {
+	if config.APILogLevel > log.DEBUG {
+		return
+	}
+
+	boardSize := int(g.Type)
+
+	turn := fenStr[len(fenStr)-1]
+	fmt.Printf("Current Turn: %s\n", map[byte]string{'1': "White", '2': "Black"}[turn])
+	rows := strings.Split(fenStr[:len(fenStr)-1], "/")
+
+	for row, data := range rows {
+		fmt.Printf("%d| %s\n", boardSize-row, strings.Join(strings.Split(data, ""), " "))
+	}
+
+	fmt.Println(" +" + strings.Repeat("-", boardSize*2+1))
+	fmt.Print("  ")
+	for i := range boardSize {
+		fmt.Printf(" %c", 'A'+i)
+	}
+	fmt.Println("")
 }
 
 func (g *FlipFlop) CurrentTurn() PlayerSide {
@@ -471,6 +499,8 @@ func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
 	initialState := encodeBoardState(game.board, game.currentTurn)
 	game.boardHistory = append(game.boardHistory, initialState)
 	game.positionCounts[initialState] = 1 // Initial position count is 1
+
+	game.printBoard(initialState)
 
 	return game
 }

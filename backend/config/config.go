@@ -13,11 +13,10 @@ var (
 /_/   /_/_/ .___/     /_/   /_/\____/ .___/
          /_/                       /_/      `
 
-	Version = "0.10.0"
+	Version = "0.10.1"
 	Host    = ":8000"
 
 	APILogLevel = log.INFO
-	WSLogLevel  = "info"
 	CorsConfig  = cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS"},

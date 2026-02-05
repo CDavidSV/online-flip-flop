@@ -138,6 +138,7 @@ func (s *Server) DeleteGameRoom(room *GameRoom) {
 	for _, conn := range room.GetPlayerConnections() {
 		conn.Session().Delete("room")
 	}
+	s.logger.Debug("Deleted game room", "room_id", room.ID)
 }
 
 func (s *Server) handleCreateRoom(socket *gws.Conn, msg IncomingMessage) {
@@ -172,7 +173,7 @@ func (s *Server) handleCreateRoom(socket *gws.Conn, msg IncomingMessage) {
 	socket.Session().Store("room", room)
 
 	s.rooms.Store(roomID, room)
-
+	s.logger.Debug("Created new game room", "room_id", roomID, "game_mode", payload.GameMode, "game_type", payload.GameType)
 	socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeRoomCreated, types.JSONMap{
 		"room_id":      roomID,
 		"is_spectator": isSpectator,
@@ -211,6 +212,8 @@ func (s *Server) handleJoinRoom(socket *gws.Conn, msg IncomingMessage) {
 	}
 	socket.Session().Store("room", room)
 
+	s.logger.Debug("Client joined game room", "room_id", room.ID, "client_id", clientID, "is_spectator", isSpectator)
+
 	socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeJoinedRoom, types.JSONMap{
 		"is_spectator": isSpectator,
 		"game_mode":    room.GameMode,
@@ -241,6 +244,8 @@ func (s *Server) handleLeaveRoom(socket *gws.Conn, msg IncomingMessage) {
 	if room.IsClosed() {
 		s.DeleteGameRoom(room)
 	}
+
+	s.logger.Debug("Client left game room", "room_id", room.ID, "client_id", clientID)
 
 	err := socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeLeftRoom, nil, msg.RequestID))
 	if err != nil {
