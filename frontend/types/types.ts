@@ -93,6 +93,7 @@ interface GameState {
     status: GameStatus;
     winner: PlayerColor | null;
     players: Player[];
+    move_history: MoveSnapshot[];
 }
 
 interface JoinGameResponse {
@@ -100,7 +101,6 @@ interface JoinGameResponse {
     game_type: GameType;
     game_mode: GameMode;
     game_state: GameState;
-    move_history: MoveSnapshot[];
     messages: ChatMessage[];
 }
 
@@ -152,9 +152,10 @@ interface GameMoveMsg {
 }
 
 interface MoveSnapshot {
-    player_id: string;
-    from: string;
-    to: string;
+    move_number: number;
+    player: PlayerColor;
+    notation: string;
+    data: any;
 }
 
 interface ChatMessage {

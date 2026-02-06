@@ -32,11 +32,12 @@ type ClientConnection struct {
 }
 
 type GameState struct {
-	Board       string           `json:"board"`
-	CurrentTurn games.PlayerSide `json:"current_turn"`
-	Status      Status           `json:"status"`
-	Winner      games.PlayerSide `json:"winner"`
-	Players     []PlayerSlot     `json:"players"`
+	Board       string                   `json:"board"`
+	CurrentTurn games.PlayerSide         `json:"current_turn"`
+	Status      Status                   `json:"status"`
+	Winner      games.PlayerSide         `json:"winner"`
+	Players     []PlayerSlot             `json:"players"`
+	MoveHistory []games.MoveHistoryEntry `json:"move_history"`
 }
 
 type SavedMessage struct {
@@ -140,6 +141,7 @@ func (gr *GameRoom) gameState() GameState {
 		Players:     players,
 		Status:      gr.status,
 		Winner:      gr.Game.GetWinner(),
+		MoveHistory: gr.Game.GetMoveHistory(),
 	}
 }
 

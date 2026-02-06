@@ -192,14 +192,14 @@ export default function GamePage() {
     const rebuildMoveHistory = useCallback(
         (joinGameResponse: JoinGameResponse) => {
             const moves: any = [];
-            joinGameResponse.move_history.forEach((move) => {
+            joinGameResponse.game_state.move_history.forEach((move) => {
                 const player = joinGameResponse.game_state.players.find(
-                    (p) => p.id === move.player_id,
+                    (p) => p.color === move.player,
                 )?.username;
                 moves.push({
                     id: moves.length + 1,
                     player: player,
-                    notation: `${move.from}-${move.to}`,
+                    notation: move.notation,
                 });
             });
 

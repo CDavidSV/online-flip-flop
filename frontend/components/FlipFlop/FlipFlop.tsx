@@ -34,12 +34,8 @@ export function FlipFlop({
     onMoveMade,
 }: BoardProps) {
     const goals = type === GameType.FLIPFLOP_3x3 ? [1, 7] : [2, 22];
-    const {
-        gameStatus,
-        currentTurn,
-        setCurrentTurn,
-        isSpectator,
-    } = useGameRoom();
+    const { gameStatus, currentTurn, setCurrentTurn, isSpectator } =
+        useGameRoom();
     const { sendRequest, on } = useWebSocket();
 
     const [gameBoard, setGameBoard] = useState<(FlipFlopPiece | null)[][]>([]);
@@ -78,13 +74,6 @@ export function FlipFlop({
             }, 500);
         });
 
-        if (initialBoardState) {
-            const parsedBoard = parseBoardState(initialBoardState);
-            setGameBoard(parsedBoard);
-        } else {
-            createBoard();
-        }
-
         return () => {
             cleanupMove();
             cleanupStart();
@@ -99,6 +88,15 @@ export function FlipFlop({
             }, 500);
         }
     }, [gameStatus]);
+
+    useEffect(() => {
+        if (initialBoardState) {
+            const parsedBoard = parseBoardState(initialBoardState);
+            setGameBoard(parsedBoard);
+        } else {
+            createBoard();
+        }
+    }, [initialBoardState]);
 
     const showTurnIndicator = () => {
         setIsFadingOut(false);
@@ -448,7 +446,7 @@ export function FlipFlop({
             {turnIndicator && (
                 <div
                     className={cn(
-                        "absolute top-0 left-1/2 -translate-x-1/2 z-50 transition-all duration-300",
+                        "absolute top-0 left-1/2 -translate-x-1/2 z-30 transition-all duration-300",
                         isFadingOut
                             ? "animate-out fade-out slide-out-to-top-5"
                             : "animate-in fade-in slide-in-from-top-5",

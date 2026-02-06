@@ -34,6 +34,7 @@ var (
 	ErrPlayerNotActive      = errors.New("player_not_active")
 	ErrIDGenerationFailed   = errors.New("id_generation_failed")
 	ErrUnauthorizedAction   = errors.New("unauthorized_action")
+	ErrNoMovesToUndo        = errors.New("no_moves_to_undo")
 )
 
 // Returns an AppError instance with the given error code and optional details.

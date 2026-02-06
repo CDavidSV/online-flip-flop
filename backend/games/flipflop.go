@@ -39,8 +39,22 @@ type FFPlayer struct {
 	color      PlayerSide
 	goal       FFBoardPos
 	pieces     []*FFPiece
-	onCheck    bool
 	validMoves map[*FFPiece][]FFBoardPos
+}
+
+type FlipFlopMove struct {
+	From string
+	To   string
+}
+
+type MoveRecord struct {
+	from          FFBoardPos
+	to            FFBoardPos
+	movedPiece    *FFPiece
+	capturedPiece *FFPiece
+	currentTurn   PlayerSide
+	gameEnded     bool
+	winner        PlayerSide
 }
 
 type FlipFlop struct {
@@ -53,12 +67,7 @@ type FlipFlop struct {
 	winner         PlayerSide
 	positionCounts map[string]int
 	boardHistory   []string
-	moveHistory    []MoveSnapshot
-}
-
-type FlipFlopMove struct {
-	From string
-	To   string
+	moveRecords    []MoveRecord
 }
 
 // Retuns a string of the name of the piece.
@@ -346,24 +355,28 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 		return apperrors.ErrIllegalMove
 	}
 
+	record := MoveRecord{
+		from:        *oldPos,
+		to:          *newPos,
+		movedPiece:  piece,
+		currentTurn: g.currentTurn,
+		gameEnded:   g.gameEnded,
+		winner:      g.winner,
+	}
+
 	// Check if the destination square is occupied by a piece
 	occupyingPiece := g.board[newPos.Row][newPos.Col]
 	if occupyingPiece != nil {
 		// Allow the move to the goal square, and capture the piece
 		occupyingPiece.Captured = true
+		record.capturedPiece = occupyingPiece
 	}
 
-	if isPosEqual(*newPos, opponent.goal) {
-		opponent.onCheck = true
-	}
+	g.moveRecords = append(g.moveRecords, record)
 
 	// Move the piece
 	g.board[newPos.Row][newPos.Col] = piece
 	g.board[oldPos.Row][oldPos.Col] = nil
-
-	// Because all moves must lead to the current player's goal square not being occupied by an opponent piece,
-	// we can always update the onCheck status of the current player to false.
-	player.onCheck = false
 
 	// Update the piece's position
 	piece.Pos = *newPos
@@ -374,11 +387,6 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	// Take a snapshot of the new board state
 	fen := encodeBoardState(g.board, g.currentTurn)
 	g.boardHistory = append(g.boardHistory, fen)
-	g.moveHistory = append(g.moveHistory, MoveSnapshot{
-		PlayerID: playerID,
-		From:     moveData.From,
-		To:       moveData.To,
-	})
 
 	g.printBoard(fen)
 
@@ -411,6 +419,31 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 		// Draw
 		return nil
 	}
+
+	return nil
+}
+
+func (g *FlipFlop) UndoLastMove() error {
+	if len(g.moveRecords) == 0 {
+		return apperrors.ErrNoMovesToUndo
+	}
+
+	// Get the last move from the array and restore the game state
+	lastMove := g.moveRecords[len(g.moveRecords)-1]
+	g.moveRecords = g.moveRecords[:len(g.moveRecords)-1]
+
+	// Restore moved piece to its original position
+	g.board[lastMove.from.Row][lastMove.from.Col] = lastMove.movedPiece
+	g.board[lastMove.to.Row][lastMove.to.Col] = lastMove.capturedPiece
+
+	// If any piece was captured, restore it to the board
+	if lastMove.capturedPiece != nil {
+		lastMove.capturedPiece.Captured = false
+	}
+
+	g.currentTurn = lastMove.currentTurn
+	g.gameEnded = lastMove.gameEnded
+	g.winner = lastMove.winner
 
 	return nil
 }
@@ -454,8 +487,20 @@ func (g *FlipFlop) GetWinner() PlayerSide {
 	return g.winner
 }
 
-func (g *FlipFlop) GetMoveHistory() []MoveSnapshot {
-	return g.moveHistory
+func (g *FlipFlop) GetMoveHistory() []MoveHistoryEntry {
+	history := make([]MoveHistoryEntry, 0, len(g.moveRecords))
+	for i, record := range g.moveRecords {
+		notation := fmt.Sprintf("%c%d-%c%d", rune('A'+record.from.Col), int(g.Type)-record.from.Row, rune('A'+record.to.Col), int(g.Type)-record.to.Row)
+		moveEntry := MoveHistoryEntry{
+			MoveNumber: i + 1,
+			Player:     record.movedPiece.Color,
+			Notation:   notation,
+			Data:       nil,
+		}
+		history = append(history, moveEntry)
+	}
+
+	return history
 }
 
 func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
@@ -473,20 +518,18 @@ func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
 			goal:       player1Goal,
 			color:      COLOR_WHITE,
 			validMoves: make(map[*FFPiece][]FFBoardPos),
-			onCheck:    false,
 		},
 		player2: &FFPlayer{
 			goal:       player2Goal,
 			color:      COLOR_BLACK,
 			validMoves: make(map[*FFPiece][]FFBoardPos),
-			onCheck:    false,
 		},
 		Type:           flipFlopType,
 		currentTurn:    COLOR_WHITE,
 		winner:         -1,
 		positionCounts: make(map[string]int),
 		boardHistory:   make([]string, 0),
-		moveHistory:    make([]MoveSnapshot, 0),
+		moveRecords:    make([]MoveRecord, 0),
 	}
 
 	game.createBoard()

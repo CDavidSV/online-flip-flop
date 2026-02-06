@@ -25,10 +25,11 @@ type BaseMove struct {
 	To   string `json:"to"`
 }
 
-type MoveSnapshot struct {
-	PlayerID string `json:"player_id"`
-	From     string `json:"from"`
-	To       string `json:"to"`
+type MoveHistoryEntry struct {
+	MoveNumber int             `json:"move_number"`
+	Player     PlayerSide      `json:"player"`
+	Notation   string          `json:"notation"`
+	Data       json.RawMessage `json:"data"` // Game-specific move data
 }
 
 type Game interface {
@@ -47,8 +48,11 @@ type Game interface {
 	// Returns the winner of the game. If the game is a draw or is ongoing, it should return -1.
 	GetWinner() PlayerSide
 
+	// Undoes the last move made in the game.
+	UndoLastMove() error
+
 	// Returns the history of moves made in the game.
-	GetMoveHistory() []MoveSnapshot
+	GetMoveHistory() []MoveHistoryEntry
 }
 
 // Factory function to create a new game instance based on the specified game type.

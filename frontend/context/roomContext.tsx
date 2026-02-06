@@ -76,8 +76,8 @@ const gameRoomContext = createContext<GameRoomContext>({
                 current_turn: PlayerColor.WHITE,
                 status: "waiting_for_players",
                 winner: null,
+                move_history: [],
             },
-            move_history: [],
             messages: [],
         };
     },
