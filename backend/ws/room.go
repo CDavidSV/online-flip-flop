@@ -1,13 +1,18 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"sync"
+	"time"
 
+	"github.com/CDavidSV/online-flip-flop/ai"
+	"github.com/CDavidSV/online-flip-flop/config"
 	"github.com/CDavidSV/online-flip-flop/games"
 	"github.com/CDavidSV/online-flip-flop/internal/apperrors"
 	"github.com/CDavidSV/online-flip-flop/internal/types"
+	"github.com/google/uuid"
 	"github.com/lxzan/gws"
 )
 
@@ -51,6 +56,9 @@ type GameRoom struct {
 	Game              games.Game
 	GameMode          GameMode
 	GameType          games.GameType
+	ai                ai.AI
+	aiThinking        bool
+	aiCancelFunc      context.CancelFunc
 	player1           *PlayerSlot
 	player2           *PlayerSlot
 	conns             map[string]*ClientConnection
@@ -68,19 +76,79 @@ const (
 	StatusClosed  Status = "closed"              // Game has ended or room is closed (no active players).
 )
 
-// Create and returns a new GameRoom instance.
-func NewGameRoom(id string, game games.Game, gameMode GameMode, gameType games.GameType, logger *slog.Logger) *GameRoom {
-	return &GameRoom{
-		ID:                id,
+type RoomConfig struct {
+	ID           string
+	GameMode     GameMode
+	AIDifficulty ai.AIDifficulty
+	GameType     games.GameType
+	Logger       *slog.Logger
+}
+
+type InitialPlayer struct {
+	ClientID string
+	Username string
+	Conn     *gws.Conn
+}
+
+// Create and returns a new GameRoom instance with the first player already set up.
+func NewGameRoom(config RoomConfig, player InitialPlayer) (*GameRoom, error) {
+	game, err := games.NewGame(config.GameType)
+	if err != nil {
+		return nil, err
+	}
+
+	room := &GameRoom{
+		ID:                config.ID,
 		Game:              game,
-		GameMode:          gameMode,
-		GameType:          gameType,
+		GameMode:          config.GameMode,
+		GameType:          config.GameType,
 		conns:             make(map[string]*ClientConnection),
 		status:            StatusWaiting,
-		logger:            logger,
+		logger:            config.Logger,
 		playerMessages:    []SavedMessage{},
 		spectatorMessages: []SavedMessage{},
 	}
+
+	// Set up first player
+	room.player1 = &PlayerSlot{
+		ID:           player.ClientID,
+		Username:     player.Username,
+		Color:        games.COLOR_WHITE,
+		IsAI:         false,
+		IsActive:     true,
+		wantsRematch: false,
+	}
+
+	room.conns[player.ClientID] = &ClientConnection{
+		ID:          player.ClientID,
+		Username:    player.Username,
+		conn:        player.Conn,
+		isSpectator: false,
+	}
+
+	// Set up AI player for singleplayer mode
+	if config.GameMode == "singleplayer" {
+		// Initialize AI for this game type
+		gameAI, err := ai.NewAI(game, config.GameType, config.AIDifficulty)
+		if err != nil {
+			config.Logger.Error("Failed to initialize AI", "game_type", config.GameType, "error", err)
+			return nil, err
+		} else {
+			room.ai = gameAI
+		}
+
+		// AI player will always be player 2 with black pieces
+		room.player2 = &PlayerSlot{
+			ID:           uuid.New().String(),
+			Username:     gameAI.Name(),
+			Color:        games.COLOR_BLACK,
+			IsAI:         true,
+			IsActive:     true,
+			wantsRematch: false,
+		}
+	}
+
+	return room, nil
 }
 
 // Broadcasts a game update to all connections in the room, skipping the connection with skipID if provided.
@@ -114,6 +182,20 @@ func (gr *GameRoom) endGame(reason string, winner games.PlayerSide) {
 		payload["winner"] = winner
 	}
 	gr.broadcastGameUpdate(MsgTypeGameEnd, payload, nil)
+
+	// If the game mode is single player and the ai is thinking, cancel the computation
+	if gr.GameMode == "singleplayer" && gr.aiThinking {
+		gr.cancelAIComputation()
+	}
+
+	// If the game mode is singleplayer, the ai will request for a rematch
+	if gr.GameMode == "singleplayer" {
+		// Request rematch by the ai (player2) after a short delay
+		go func() {
+			time.Sleep(2 * time.Second)
+			gr.RequestRematch(gr.player2.ID)
+		}()
+	}
 }
 
 // Called when the game ends to update room status and notify connected clients.
@@ -219,6 +301,10 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 		return false, nil
 	}
 
+	if gr.GameMode == "singleplayer" {
+		return false, apperrors.ErrRoomFull
+	}
+
 	// For a new player username is required
 	if username == "" {
 		return false, apperrors.ErrUsernameRequired
@@ -282,6 +368,16 @@ func (gr *GameRoom) LeaveRoom(id string) {
 			"player_id": id,
 		}, nil)
 
+		// If the game mode is singleplayer, close the room and cancel any ongoing AI computation
+		if gr.GameMode == "singleplayer" {
+			gr.status = StatusClosed
+
+			if gr.aiThinking {
+				gr.cancelAIComputation()
+			}
+			return
+		}
+
 		if gr.playersInactive() {
 			gr.status = StatusClosed
 
@@ -317,7 +413,6 @@ func (gr *GameRoom) StartGame() bool {
 
 // Handles a move made by a player.
 // Registers and validates the move according to game rules and broadcasts the update.
-// Returns the player's color to allow server-side processing.
 func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawMessage) (games.PlayerSide, error) {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
@@ -337,13 +432,12 @@ func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawM
 		return -1, apperrors.ErrNotYourTurn
 	}
 
-	err := gr.Game.ApplyMove(movePayload, clientID)
+	err := gr.Game.ApplyMove(movePayload)
 	if err != nil {
 		return -1, err
 	}
 
 	if clientConn, ok := gr.conns[clientID]; ok {
-		// Acknowledge the move to the player immediately
 		ackMsg := NewMessage(MsgTypeAck, nil, requestID)
 		clientConn.conn.WriteAsync(gws.OpcodeText, ackMsg, func(err error) {
 			if err != nil {
@@ -365,6 +459,12 @@ func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawM
 		} else {
 			gr.endGame("normal", gr.Game.GetWinner())
 		}
+		return player.Color, nil
+	}
+
+	// Trigger AI move if in singleplayer mode
+	if gr.GameMode == "singleplayer" {
+		go gr.handleAIMove()
 	}
 
 	return player.Color, nil
@@ -394,6 +494,84 @@ func (gr *GameRoom) HandleForfeit(clientID string) error {
 
 	gr.endGame("forfeit", opponentColor)
 	return nil
+}
+
+// Handles the AI move in singleplayer mode.
+func (gr *GameRoom) handleAIMove() {
+	// Move delay to make the move feel like the AI is thinking
+	time.Sleep(time.Second * time.Duration(config.AIMoveDelay))
+
+	gr.mu.Lock()
+	defer gr.mu.Unlock()
+
+	if gr.ai == nil {
+		gr.logger.Error("AI not initialized for this game")
+		return
+	}
+
+	if err := gr.validateActionStatus(); err != nil {
+		return
+	}
+
+	aiPlayer := gr.player2
+
+	if aiPlayer.Color != gr.Game.CurrentTurn() {
+		return
+	}
+
+	// Create context
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.AIThinkTimeout)*time.Second)
+	gr.aiThinking = true
+	gr.aiCancelFunc = cancel
+
+	go func() {
+		defer func() {
+			cancel()
+			gr.mu.Lock()
+			gr.aiThinking = false
+			gr.aiCancelFunc = nil
+			gr.mu.Unlock()
+		}()
+
+		bestMove, err := gr.ai.GetBestMove(ctx, aiPlayer.Color)
+		if err != nil {
+			gr.logger.Error("AI failed to find a move", "error", err)
+			return
+		}
+
+		// If bestMove is nil, it means the AI could not find a valid move so it will forfeit
+		if bestMove == nil {
+			gr.endGame("forfeit", gr.player1.Color)
+			return
+		}
+
+		gr.mu.Lock()
+		defer gr.mu.Unlock()
+
+		if gr.status != StatusOngoing {
+			return
+		}
+		err = gr.Game.ApplyMove(bestMove)
+		if err != nil {
+			gr.logger.Error("AI move application failed", "error", err)
+			return
+		}
+
+		gr.broadcastGameUpdate(MsgTypeMove, types.JSONMap{
+			"player_id": aiPlayer.ID,
+			"color":     aiPlayer.Color,
+			"move":      bestMove,
+			"board":     gr.Game.GetBoardString(),
+		}, nil)
+
+		if gr.Game.IsGameEnded() {
+			if gr.Game.GetWinner() == -1 {
+				gr.endGame("draw", -1)
+			} else {
+				gr.endGame("normal", gr.Game.GetWinner())
+			}
+		}
+	}()
 }
 
 // Handles a chat message sent by a client and broadcasts it to other clients.
@@ -481,6 +659,11 @@ func (gr *GameRoom) RequestRematch(clientID string) error {
 			return err
 		}
 		gr.Game = newGame
+
+		if gr.ai != nil {
+			gr.ai.SetGame(newGame)
+		}
+
 		gr.status = StatusOngoing
 		gr.player1.wantsRematch = false
 		gr.player2.wantsRematch = false
@@ -556,4 +739,10 @@ func (gr *GameRoom) GetMessages(spectator bool) []SavedMessage {
 	}
 
 	return messages
+}
+
+func (gr *GameRoom) cancelAIComputation() {
+	if gr.aiCancelFunc != nil {
+		gr.aiCancelFunc()
+	}
 }

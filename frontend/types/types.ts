@@ -21,11 +21,9 @@ enum PieceType {
 
 enum ErrorCode {
     VALIDATION_FAILED = "validation_failed",
-    INVALID_REQUEST_PAYLOAD = "invalid_request_payload",
     ALREADY_IN_GAME = "already_in_game",
     USERNAME_REQUIRED = "username_required",
     INVALID_MESSAGE_FORMAT = "invalid_message_format",
-    INVALID_MESSAGE_PAYLOAD = "invalid_message_payload",
     ROOM_NOT_FOUND = "room_not_found",
     ROOM_CLOSED = "room_closed",
     CLIENT_NOT_FOUND = "client_not_found",
@@ -35,8 +33,18 @@ enum ErrorCode {
     NOT_YOUR_TURN = "not_your_turn",
     ILLEGAL_MOVE = "illegal_move",
     GAME_ENDED = "game_ended",
+    UNAUTHORIZED_ACTION = "unauthorized_action",
+    INVALID_GAME_MODE = "invalid_game_mode",
+    INVALID_AI_DIFFICULTY = "invalid_ai_difficulty",
+    ROOM_FULL = "room_full",
     PLAYER_NOT_ACTIVE = "player_not_active",
     ID_GENERATION_FAILED = "id_generation_failed",
+}
+
+enum AIDDifficulty {
+    EASY = "easy",
+    MEDIUM = "medium",
+    HARD = "hard",
 }
 
 // Incoming WebSocket message events
@@ -75,6 +83,7 @@ interface CreateGameRequest {
     username: string;
     game_type: GameType;
     game_mode: GameMode;
+    difficulty?: AIDDifficulty;
 }
 
 interface CreateGameResponse {
@@ -172,7 +181,7 @@ interface PlayerLeftMsg {
     player_id: string;
 }
 
-export { GameType, GameMode, PlayerColor, PieceType, ErrorCode };
+export { GameType, GameMode, PlayerColor, PieceType, ErrorCode, AIDDifficulty };
 export type {
     CreateGameResponse,
     CreateGameRequest,

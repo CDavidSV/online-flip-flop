@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"log/slog"
@@ -16,9 +15,6 @@ import (
 )
 
 func main() {
-	host := flag.String("host", "localhost:8000", "Host address for the server")
-	flag.Parse()
-
 	r := chi.NewRouter()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -26,7 +22,7 @@ func main() {
 
 	fmt.Println(config.Banner)
 	fmt.Println("Version:", config.Version)
-	fmt.Println("Server listening on", *host)
+	fmt.Println("Server listening on", config.Host)
 
 	// Middleware
 	r.Use(Logger)
@@ -38,5 +34,5 @@ func main() {
 	r.Get("/ws", ws.WSHandler(gameServer))
 
 	// Start Server
-	log.Fatal(http.ListenAndServe(*host, r))
+	log.Fatal(http.ListenAndServe(config.Host, r))
 }

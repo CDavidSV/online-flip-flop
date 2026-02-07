@@ -13,6 +13,7 @@ import {
     Player,
     PlayerColor,
     PlayerRejoinMsg,
+    AIDDifficulty,
 } from "@/types/types";
 import {
     createContext,
@@ -42,6 +43,7 @@ interface GameRoomContext {
         username: string,
         gameType: GameType,
         gameMode: GameMode,
+        difficulty?: AIDDifficulty,
     ) => Promise<string>;
     joinRoom: (roomId: string, username?: string) => Promise<JoinGameResponse>;
     leaveRoom: () => Promise<boolean>;
@@ -279,6 +281,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         username: string,
         gameType: GameType,
         gameMode: GameMode,
+        difficulty?: AIDDifficulty,
     ): Promise<string> => {
         if (!isConnected) {
             throw new Error("WebSocket is not connected");
@@ -289,6 +292,10 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
             game_type: gameType,
             game_mode: gameMode,
         };
+
+        if (difficulty) {
+            createGameRequest.difficulty = difficulty;
+        }
 
         try {
             const response = await sendRequest("create", createGameRequest);

@@ -5,10 +5,11 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/CDavidSV/online-flip-flop/games"
+	"github.com/CDavidSV/online-flip-flop/config"
 	"github.com/CDavidSV/online-flip-flop/internal/apperrors"
 	"github.com/CDavidSV/online-flip-flop/internal/types"
 	"github.com/CDavidSV/online-flip-flop/internal/validator"
@@ -19,14 +20,14 @@ import (
 type GameMode string
 
 const (
-	GameModeSingleplayer GameMode = "singleplayer"
-	GameModeMultiplayer  GameMode = "multiplayer"
-)
-
-const (
 	PingInterval = 60 * time.Second // Interval for sending ping messages
 	PingWait     = 10 * time.Second // Wait time for a client to send ping message
 )
+
+var validGameModes = []GameMode{
+	"singleplayer",
+	"multiplayer",
+}
 
 type Server struct {
 	gws.BuiltinEventHandler
@@ -102,8 +103,26 @@ func WSHandler(server *Server) http.HandlerFunc {
 	})
 
 	return func(res http.ResponseWriter, req *http.Request) {
+		// Verify that the connecting client is from an allowed origin
+		origin := req.Header.Get("Origin")
+		allowed := false
+		for _, allowedOrigin := range config.AllowedOrigins {
+			if allowedOrigin == "*" || allowedOrigin == origin {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			server.logger.Warn("WebSocket connection rejected due to invalid origin", "origin", origin)
+			http.Error(res, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		// Upgrade the connections
 		socket, err := upgrader.Upgrade(res, req)
 		if err != nil {
+			server.logger.Error("WebSocket upgrade failed", "error", err)
 			return
 		}
 
@@ -154,6 +173,11 @@ func (s *Server) handleCreateRoom(socket *gws.Conn, msg IncomingMessage) {
 		return
 	}
 
+	if !slices.Contains(validGameModes, payload.GameMode) {
+		s.writeError(socket, apperrors.ErrInvalidGameMode, msg.RequestID)
+		return
+	}
+
 	clientID, _, hasRoom := s.getClientContext(socket)
 	if hasRoom {
 		s.writeError(socket, apperrors.ErrAlreadyInGame, msg.RequestID)
@@ -166,17 +190,36 @@ func (s *Server) handleCreateRoom(socket *gws.Conn, msg IncomingMessage) {
 		return
 	}
 
-	game, _ := games.NewGame(payload.GameType)
-	room := NewGameRoom(roomID, game, payload.GameMode, payload.GameType, s.logger)
-
-	isSpectator, _ := room.EnterRoom(clientID, socket, payload.Username)
+	room, err := NewGameRoom(
+		RoomConfig{
+			ID:           roomID,
+			GameMode:     payload.GameMode,
+			GameType:     payload.GameType,
+			AIDifficulty: payload.Difficulty,
+			Logger:       s.logger,
+		},
+		InitialPlayer{
+			ClientID: clientID,
+			Username: payload.Username,
+			Conn:     socket,
+		},
+	)
+	if err != nil {
+		s.writeError(socket, err, msg.RequestID)
+		return
+	}
 	socket.Session().Store("room", room)
 
 	s.rooms.Store(roomID, room)
 	s.logger.Debug("Created new game room", "room_id", roomID, "game_mode", payload.GameMode, "game_type", payload.GameType)
+
+	if room.GameMode == "singleplayer" {
+		room.StartGame()
+	}
+
 	socket.WriteMessage(gws.OpcodeText, NewMessage(MsgTypeRoomCreated, types.JSONMap{
 		"room_id":      roomID,
-		"is_spectator": isSpectator,
+		"is_spectator": false,
 	}, msg.RequestID))
 }
 

@@ -5,6 +5,7 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useState, useRef, useEffect, KeyboardEvent, useCallback } from "react";
 import { ChatMessage, MessageEvent } from "@/types/types";
+import { useGameRoom } from "@/context/roomContext";
 import {
     Card,
     CardContent,
@@ -12,7 +13,6 @@ import {
     CardHeader,
     CardTitle,
 } from "../ui/card";
-import { useGameRoom } from "@/context/roomContext";
 
 export function Chat({ initialMessages }: { initialMessages?: ChatMessage[] }) {
     const { clientId, isConnected, on, sendRequest } = useWebSocket();

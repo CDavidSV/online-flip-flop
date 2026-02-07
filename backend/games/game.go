@@ -11,7 +11,6 @@ type PlayerSide int
 const (
 	TYPE_FLIPFLOP3x3 GameType = "flipflop3x3"
 	TYPE_FLIPFLOP5x5 GameType = "flipflop5x5"
-	TYPE_FLIPFOUR    GameType = "flipfour"
 )
 
 const (
@@ -34,7 +33,7 @@ type MoveHistoryEntry struct {
 
 type Game interface {
 	// Applies a move to the game state. The game implementation should validate the move and return an error if it's illegal.
-	ApplyMove(moveData json.RawMessage, playerID string) error
+	ApplyMove(moveData json.RawMessage) error
 
 	// Returns which player's turn it is.
 	CurrentTurn() PlayerSide
@@ -49,7 +48,7 @@ type Game interface {
 	GetWinner() PlayerSide
 
 	// Undoes the last move made in the game.
-	UndoLastMove() error
+	UndoLastMove()
 
 	// Returns the history of moves made in the game.
 	GetMoveHistory() []MoveHistoryEntry
@@ -62,8 +61,6 @@ func NewGame(gameType GameType) (Game, error) {
 		return NewFlipFlopGame(FlipFlop3x3), nil
 	case TYPE_FLIPFLOP5x5:
 		return NewFlipFlopGame(FlipFlop5x5), nil
-	case TYPE_FLIPFOUR:
-		return nil, errors.New("invalid game type")
 	default:
 		return nil, errors.New("invalid game type")
 	}

@@ -28,13 +28,9 @@ export function getErrorInfo(error: WSError): ErrorInfo {
     const messages: Record<ErrorCode, string> = {
         [ErrorCode.VALIDATION_FAILED]:
             "Validation failed. Please check your input and try again.",
-        [ErrorCode.INVALID_REQUEST_PAYLOAD]:
-            "Invalid request format. Please try again.",
         [ErrorCode.ALREADY_IN_GAME]:
             "You are already in a game. Please leave your current game first.",
         [ErrorCode.INVALID_MESSAGE_FORMAT]:
-            "An error occurred while processing your request. Please try again.",
-        [ErrorCode.INVALID_MESSAGE_PAYLOAD]:
             "An error occurred while processing your request. Please try again.",
         [ErrorCode.ROOM_NOT_FOUND]:
             "Game room not found. It may have been closed or the code is incorrect.",
@@ -54,6 +50,11 @@ export function getErrorInfo(error: WSError): ErrorInfo {
         [ErrorCode.ID_GENERATION_FAILED]:
             "Failed to create game room. Please try again.",
         [ErrorCode.USERNAME_REQUIRED]: "Username is required to join a game.",
+        [ErrorCode.UNAUTHORIZED_ACTION]:
+            "You are not authorized to perform this action.",
+        [ErrorCode.INVALID_GAME_MODE]: "Invalid game mode selected.",
+        [ErrorCode.INVALID_AI_DIFFICULTY]: "Invalid AI difficulty selected.",
+        [ErrorCode.ROOM_FULL]: "This game room is full.",
     };
 
     return {

@@ -3,6 +3,7 @@ package ws
 import (
 	"encoding/json"
 
+	"github.com/CDavidSV/online-flip-flop/ai"
 	"github.com/CDavidSV/online-flip-flop/games"
 	"github.com/CDavidSV/online-flip-flop/internal/apperrors"
 )
@@ -48,9 +49,10 @@ type OutgoingMessage struct {
 }
 
 type CreateRoom struct {
-	GameType games.GameType `json:"game_type" validate:"required"`
-	GameMode GameMode       `json:"game_mode" validate:"required"`
-	Username string         `json:"username" validate:"required,min=2,max=20"`
+	GameType   games.GameType  `json:"game_type" validate:"required"`
+	GameMode   GameMode        `json:"game_mode" validate:"required"`
+	Difficulty ai.AIDifficulty `json:"difficulty,omitempty"`
+	Username   string          `json:"username" validate:"required,min=2,max=20"`
 }
 
 type JoinRoom struct {

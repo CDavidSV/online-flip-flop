@@ -28,6 +28,11 @@ type FFBoardPos struct {
 	Col int
 }
 
+type ValidMove struct {
+	From FFBoardPos
+	To   FFBoardPos
+}
+
 type FFPiece struct {
 	Color    PlayerSide
 	Side     PieceSide
@@ -36,10 +41,10 @@ type FFPiece struct {
 }
 
 type FFPlayer struct {
-	color      PlayerSide
-	goal       FFBoardPos
-	pieces     []*FFPiece
-	validMoves map[*FFPiece][]FFBoardPos
+	Color      PlayerSide
+	Goal       FFBoardPos
+	Pieces     []*FFPiece
+	ValidMoves []ValidMove
 }
 
 type FlipFlopMove struct {
@@ -48,22 +53,26 @@ type FlipFlopMove struct {
 }
 
 type MoveRecord struct {
-	from          FFBoardPos
-	to            FFBoardPos
-	movedPiece    *FFPiece
-	capturedPiece *FFPiece
-	currentTurn   PlayerSide
-	gameEnded     bool
-	winner        PlayerSide
+	from              FFBoardPos
+	to                FFBoardPos
+	movedPiece        *FFPiece
+	capturedPiece     *FFPiece
+	currentTurn       PlayerSide
+	gameEnded         bool
+	winner            PlayerSide
+	player1ValidMoves []ValidMove
+	player2ValidMoves []ValidMove
 }
 
+// FIXME: Player and Board should not be public (since it can be modified externally by mistake) but since they are used in AI, they have to be public for now.
+// Find a way to avoid this in the future.
 type FlipFlop struct {
-	player1        *FFPlayer
-	player2        *FFPlayer
+	Player1        *FFPlayer
+	Player2        *FFPlayer
 	Type           FlipFlopType
 	gameEnded      bool
 	currentTurn    PlayerSide
-	board          [][]*FFPiece
+	Board          [][]*FFPiece
 	winner         PlayerSide
 	positionCounts map[string]int
 	boardHistory   []string
@@ -76,6 +85,10 @@ func (p *FFPiece) String() string {
 		return "rook"
 	}
 	return "bishop"
+}
+
+func (p *FFBoardPos) String(boardSize int) string {
+	return fmt.Sprintf("%c%d", rune('A'+p.Col), boardSize-p.Row)
 }
 
 func isPosEqual(pos1, pos2 FFBoardPos) bool {
@@ -140,9 +153,9 @@ func (g *FlipFlop) createBoard() {
 	rows := int(g.Type)
 	cols := rows
 
-	g.board = make([][]*FFPiece, rows)
-	for r := range g.board {
-		g.board[r] = make([]*FFPiece, cols)
+	g.Board = make([][]*FFPiece, rows)
+	for r := range g.Board {
+		g.Board[r] = make([]*FFPiece, cols)
 	}
 
 	// White pieces are placed in the first row
@@ -159,10 +172,10 @@ func (g *FlipFlop) createBoard() {
 			Color: COLOR_WHITE,
 		}
 
-		g.player1.pieces = append(g.player1.pieces, whitePiece)
-		g.player2.pieces = append(g.player2.pieces, blackPiece)
-		g.board[0][c] = blackPiece
-		g.board[rows-1][c] = whitePiece
+		g.Player1.Pieces = append(g.Player1.Pieces, whitePiece)
+		g.Player2.Pieces = append(g.Player2.Pieces, blackPiece)
+		g.Board[0][c] = blackPiece
+		g.Board[rows-1][c] = whitePiece
 	}
 }
 
@@ -203,11 +216,11 @@ func (g *FlipFlop) parsePosition(pos string) (*FFBoardPos, error) {
 	return &FFBoardPos{Row: row, Col: col}, nil
 }
 
-// Returns a map per piece of all all valid moves.
-// Returns a bolean indicating if the player has any moves available.
-func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, bool) {
-	// Represents all valid moves for each piece of the player
-	validMoves := make(map[*FFPiece][]FFBoardPos)
+// Returns a slice of all valid moves.
+// Returns a boolean indicating if the player has any moves available.
+func (g *FlipFlop) GetValidMoves(player *FFPlayer) ([]ValidMove, bool) {
+	// Represents all valid moves for the player
+	validMoves := make([]ValidMove, 0)
 
 	// Flag to indicate if the player can make any move
 	canMove := false
@@ -216,12 +229,10 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 	// In FlipFlop, this means moving a piece that is currently occupying the current player's goal square
 
 	// Iterate over all pieces of the player
-	for _, piece := range player.pieces {
+	for _, piece := range player.Pieces {
 		if piece.Captured {
 			continue
 		}
-
-		moves := make([]FFBoardPos, 0)
 
 		// Check all board positions for valid moves
 		var directions []FFBoardPos
@@ -251,15 +262,18 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 				pos.Col += dir.Col
 
 				// Check if the new position is within board bounds
-				if pos.Row < 0 || pos.Row >= len(g.board) || pos.Col < 0 || pos.Col >= len(g.board[0]) {
+				if pos.Row < 0 || pos.Row >= len(g.Board) || pos.Col < 0 || pos.Col >= len(g.Board[0]) {
 					break
 				}
 
-				occupyingPiece := g.board[pos.Row][pos.Col]
+				occupyingPiece := g.Board[pos.Row][pos.Col]
 				if occupyingPiece != nil {
 					// If there is a piece in the current position, check if it's a goal square and if it belongs to the opponent
 					if g.isGoalSquare(pos) && occupyingPiece.Color != piece.Color {
-						moves = append(moves, FFBoardPos{Row: pos.Row, Col: pos.Col})
+						validMoves = append(validMoves, ValidMove{
+							From: piece.Pos,
+							To:   FFBoardPos{Row: pos.Row, Col: pos.Col},
+						})
 						canMove = true
 					}
 
@@ -268,13 +282,12 @@ func (g *FlipFlop) getValidMoves(player *FFPlayer) (map[*FFPiece][]FFBoardPos, b
 				}
 
 				// Valid move
-				moves = append(moves, FFBoardPos{Row: pos.Row, Col: pos.Col})
+				validMoves = append(validMoves, ValidMove{
+					From: piece.Pos,
+					To:   FFBoardPos{Row: pos.Row, Col: pos.Col},
+				})
 				canMove = true
 			}
-		}
-
-		if len(moves) > 0 {
-			validMoves[piece] = moves
 		}
 	}
 
@@ -297,7 +310,7 @@ func (g *FlipFlop) changeTurn() {
 	}
 }
 
-func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
+func (g *FlipFlop) ApplyMove(move json.RawMessage) error {
 	// Check if the game has already ended
 	if g.gameEnded {
 		return apperrors.ErrGameEnded
@@ -312,11 +325,11 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	var player *FFPlayer
 	var opponent *FFPlayer
 	if g.currentTurn == COLOR_WHITE {
-		player = g.player1
-		opponent = g.player2
+		player = g.Player1
+		opponent = g.Player2
 	} else {
-		player = g.player2
-		opponent = g.player1
+		player = g.Player2
+		opponent = g.Player1
 	}
 
 	// Parse and validate board positions
@@ -331,20 +344,15 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	}
 
 	// Check if the piece being moved belongs to the player
-	piece := g.board[oldPos.Row][oldPos.Col]
-	if piece == nil || piece.Color != player.color {
+	piece := g.Board[oldPos.Row][oldPos.Col]
+	if piece == nil || piece.Color != player.Color {
 		return apperrors.ErrIllegalMove
 	}
 
 	// Check if the move is valid using cached valid moves
-	validPieceMoves, exists := player.validMoves[piece]
-	if !exists {
-		return apperrors.ErrIllegalMove
-	}
-
 	moveValid := false
-	for _, pos := range validPieceMoves {
-		if isPosEqual(pos, *newPos) {
+	for _, validMove := range player.ValidMoves {
+		if isPosEqual(validMove.From, *oldPos) && isPosEqual(validMove.To, *newPos) {
 			// Valid move found, break out of the loop
 			moveValid = true
 			break
@@ -356,16 +364,18 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	}
 
 	record := MoveRecord{
-		from:        *oldPos,
-		to:          *newPos,
-		movedPiece:  piece,
-		currentTurn: g.currentTurn,
-		gameEnded:   g.gameEnded,
-		winner:      g.winner,
+		from:              *oldPos,
+		to:                *newPos,
+		movedPiece:        piece,
+		currentTurn:       g.currentTurn,
+		gameEnded:         g.gameEnded,
+		winner:            g.winner,
+		player1ValidMoves: g.Player1.ValidMoves,
+		player2ValidMoves: g.Player2.ValidMoves,
 	}
 
 	// Check if the destination square is occupied by a piece
-	occupyingPiece := g.board[newPos.Row][newPos.Col]
+	occupyingPiece := g.Board[newPos.Row][newPos.Col]
 	if occupyingPiece != nil {
 		// Allow the move to the goal square, and capture the piece
 		occupyingPiece.Captured = true
@@ -375,8 +385,8 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	g.moveRecords = append(g.moveRecords, record)
 
 	// Move the piece
-	g.board[newPos.Row][newPos.Col] = piece
-	g.board[oldPos.Row][oldPos.Col] = nil
+	g.Board[newPos.Row][newPos.Col] = piece
+	g.Board[oldPos.Row][oldPos.Col] = nil
 
 	// Update the piece's position
 	piece.Pos = *newPos
@@ -385,24 +395,24 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	g.changeTurn()
 
 	// Take a snapshot of the new board state
-	fen := encodeBoardState(g.board, g.currentTurn)
+	fen := encodeBoardState(g.Board, g.currentTurn)
 	g.boardHistory = append(g.boardHistory, fen)
 
-	g.printBoard(fen)
+	g.printGameState(fen)
 
 	// Check for game end conditions
 	// After the move, check if the current player has any pieces in their goal
-	pieceInGoal := g.board[player.goal.Row][player.goal.Col]
-	if pieceInGoal != nil && pieceInGoal.Color != player.color {
+	pieceInGoal := g.Board[player.Goal.Row][player.Goal.Col]
+	if pieceInGoal != nil && pieceInGoal.Color != player.Color {
 		g.gameEnded = true
-		g.winner = opponent.color
+		g.winner = opponent.Color
 
 		return nil
 	}
 
 	// Get valid moves for the opponent
-	opponentValidMoves, canMove := g.getValidMoves(opponent)
-	opponent.validMoves = opponentValidMoves
+	opponentValidMoves, canMove := g.GetValidMoves(opponent)
+	opponent.ValidMoves = opponentValidMoves
 	if !canMove {
 		// Opponent has no valid moves
 		g.gameEnded = true
@@ -423,9 +433,9 @@ func (g *FlipFlop) ApplyMove(move json.RawMessage, playerID string) error {
 	return nil
 }
 
-func (g *FlipFlop) UndoLastMove() error {
+func (g *FlipFlop) UndoLastMove() {
 	if len(g.moveRecords) == 0 {
-		return apperrors.ErrNoMovesToUndo
+		return
 	}
 
 	// Get the last move from the array and restore the game state
@@ -433,8 +443,12 @@ func (g *FlipFlop) UndoLastMove() error {
 	g.moveRecords = g.moveRecords[:len(g.moveRecords)-1]
 
 	// Restore moved piece to its original position
-	g.board[lastMove.from.Row][lastMove.from.Col] = lastMove.movedPiece
-	g.board[lastMove.to.Row][lastMove.to.Col] = lastMove.capturedPiece
+	g.Board[lastMove.from.Row][lastMove.from.Col] = lastMove.movedPiece
+	g.Board[lastMove.to.Row][lastMove.to.Col] = lastMove.capturedPiece
+
+	// Restore the position and piece side to its original state
+	lastMove.movedPiece.Pos = lastMove.from
+	g.flipPieceSide(lastMove.movedPiece)
 
 	// If any piece was captured, restore it to the board
 	if lastMove.capturedPiece != nil {
@@ -445,10 +459,27 @@ func (g *FlipFlop) UndoLastMove() error {
 	g.gameEnded = lastMove.gameEnded
 	g.winner = lastMove.winner
 
-	return nil
+	// Remove the last board state from history
+	if len(g.boardHistory) > 0 {
+		lastBoardState := g.boardHistory[len(g.boardHistory)-1]
+		g.boardHistory = g.boardHistory[:len(g.boardHistory)-1]
+
+		// Decrement position count for the undone position
+		if count, exists := g.positionCounts[lastBoardState]; exists {
+			if count > 1 {
+				g.positionCounts[lastBoardState]--
+			} else {
+				delete(g.positionCounts, lastBoardState)
+			}
+		}
+	}
+
+	// Restore valid moves from the saved state instead of recalculating
+	g.Player1.ValidMoves = lastMove.player1ValidMoves
+	g.Player2.ValidMoves = lastMove.player2ValidMoves
 }
 
-func (g *FlipFlop) printBoard(fenStr string) {
+func (g *FlipFlop) printGameState(fenStr string) {
 	if config.APILogLevel > log.DEBUG {
 		return
 	}
@@ -487,6 +518,10 @@ func (g *FlipFlop) GetWinner() PlayerSide {
 	return g.winner
 }
 
+func (g *FlipFlop) BoardSize() int {
+	return int(g.Type)
+}
+
 func (g *FlipFlop) GetMoveHistory() []MoveHistoryEntry {
 	history := make([]MoveHistoryEntry, 0, len(g.moveRecords))
 	for i, record := range g.moveRecords {
@@ -514,15 +549,15 @@ func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
 	}
 
 	game := &FlipFlop{
-		player1: &FFPlayer{
-			goal:       player1Goal,
-			color:      COLOR_WHITE,
-			validMoves: make(map[*FFPiece][]FFBoardPos),
+		Player1: &FFPlayer{
+			Goal:       player1Goal,
+			Color:      COLOR_WHITE,
+			ValidMoves: make([]ValidMove, 0),
 		},
-		player2: &FFPlayer{
-			goal:       player2Goal,
-			color:      COLOR_BLACK,
-			validMoves: make(map[*FFPiece][]FFBoardPos),
+		Player2: &FFPlayer{
+			Goal:       player2Goal,
+			Color:      COLOR_BLACK,
+			ValidMoves: make([]ValidMove, 0),
 		},
 		Type:           flipFlopType,
 		currentTurn:    COLOR_WHITE,
@@ -535,15 +570,15 @@ func NewFlipFlopGame(flipFlopType FlipFlopType) *FlipFlop {
 	game.createBoard()
 
 	// Generate initial valid moves for white player
-	validMoves, _ := game.getValidMoves(game.player1)
-	game.player1.validMoves = validMoves
+	validMoves, _ := game.GetValidMoves(game.Player1)
+	game.Player1.ValidMoves = validMoves
 
 	// Take a snapshot of the initial board state
-	initialState := encodeBoardState(game.board, game.currentTurn)
+	initialState := encodeBoardState(game.Board, game.currentTurn)
 	game.boardHistory = append(game.boardHistory, initialState)
 	game.positionCounts[initialState] = 1 // Initial position count is 1
 
-	game.printBoard(initialState)
+	game.printGameState(initialState)
 
 	return game
 }

@@ -14,11 +14,20 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useWebSocket } from "@/context/wsContext";
-import { GameType, GameMode, ErrorCode } from "@/types/types";
+import { GameType, GameMode, ErrorCode, AIDDifficulty } from "@/types/types";
 import { isWSError, getErrorInfo, isErrorCode } from "@/lib/errorHandler";
 import FlipFlopLoader from "@/components/FlipFlopLoader/FlipFlopLoader";
 import Image from "next/image";
-import { Sparkles, DoorOpen, BookOpen, User, Users2 } from "lucide-react";
+import {
+    Sparkles,
+    DoorOpen,
+    BookOpen,
+    User,
+    Users2,
+    Smile,
+    Meh,
+    Frown,
+} from "lucide-react";
 import {
     Carousel,
     CarouselContent,
@@ -63,6 +72,7 @@ export default function Home() {
     const [gameConfig, setGameConfig] = useState({
         type: GameType.FLIPFLOP_3x3,
         mode: GameMode.MULTIPLAYER,
+        difficulty: AIDDifficulty.MEDIUM,
     });
     const [carouselApi, setCarouselApi] = useState<
         ReturnType<typeof useEmblaCarousel>[1] | null
@@ -89,7 +99,12 @@ export default function Home() {
         setIsLoading(true);
 
         // Submit create game request to backend
-        createGameRoom(data.username, gameConfig.type, gameConfig.mode)
+        createGameRoom(
+            data.username,
+            gameConfig.type,
+            gameConfig.mode,
+            gameConfig.difficulty,
+        )
             .then((response) => {
                 // Redirect user to game page
                 router.push(`/game/${response}`);
@@ -427,7 +442,6 @@ export default function Home() {
                                 <MenuButton
                                     text='Singleplayer'
                                     icon={<User className='size-8' />}
-                                    disabled
                                     onClick={() => {
                                         setGameConfig((prev) => ({
                                             ...prev,
@@ -466,7 +480,14 @@ export default function Home() {
                                             ...prev,
                                             type: GameType.FLIPFLOP_3x3,
                                         }));
-                                        setOpenDialog("create");
+                                        if (
+                                            gameConfig.mode ===
+                                            GameMode.SINGLEPLAYER
+                                        ) {
+                                            carouselApi?.scrollNext();
+                                        } else {
+                                            setOpenDialog("create");
+                                        }
                                     }}
                                 />
                                 <MenuButton
@@ -476,16 +497,57 @@ export default function Home() {
                                             ...prev,
                                             type: GameType.FLIPFLOP_5x5,
                                         }));
+                                        if (
+                                            gameConfig.mode ===
+                                            GameMode.SINGLEPLAYER
+                                        ) {
+                                            carouselApi?.scrollNext();
+                                        } else {
+                                            setOpenDialog("create");
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <Button
+                                className='w-fit'
+                                onClick={() =>
+                                    carouselApi && carouselApi.scrollPrev()
+                                }
+                            >
+                                Go Back
+                            </Button>
+                        </CarouselItem>
+                        <CarouselItem className='flex justify-center items-center flex-col gap-4'>
+                            <div className='flex justify-center flex-row gap-4 flex-wrap'>
+                                <MenuButton
+                                    text='Easy'
+                                    icon={<Smile className='size-8' />}
+                                    onClick={() => {
+                                        setGameConfig((prev) => ({
+                                            ...prev,
+                                            difficulty: AIDDifficulty.EASY,
+                                        }));
                                         setOpenDialog("create");
                                     }}
                                 />
                                 <MenuButton
-                                    text='FlipFour'
-                                    disabled
+                                    text='Medium'
+                                    icon={<Meh className='size-8' />}
                                     onClick={() => {
                                         setGameConfig((prev) => ({
                                             ...prev,
-                                            type: GameType.FLIPFOUR,
+                                            difficulty: AIDDifficulty.MEDIUM,
+                                        }));
+                                        setOpenDialog("create");
+                                    }}
+                                />
+                                <MenuButton
+                                    text='Hard'
+                                    icon={<Frown className='size-8' />}
+                                    onClick={() => {
+                                        setGameConfig((prev) => ({
+                                            ...prev,
+                                            difficulty: AIDDifficulty.HARD,
                                         }));
                                         setOpenDialog("create");
                                     }}
