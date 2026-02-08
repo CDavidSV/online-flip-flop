@@ -193,7 +193,14 @@ func (gr *GameRoom) endGame(reason string, winner games.PlayerSide) {
 		// Request rematch by the ai (player2) after a short delay
 		go func() {
 			time.Sleep(2 * time.Second)
-			gr.RequestRematch(gr.player2.ID)
+
+			gr.mu.RLock()
+			aiPlayerID := gr.player2.ID
+			gr.mu.RUnlock()
+
+			if err := gr.RequestRematch(aiPlayerID); err != nil {
+				gr.logger.Error("AI failed to request rematch", "error", err)
+			}
 		}()
 	}
 }
@@ -539,14 +546,14 @@ func (gr *GameRoom) handleAIMove() {
 			return
 		}
 
+		gr.mu.Lock()
+		defer gr.mu.Unlock()
+
 		// If bestMove is nil, it means the AI could not find a valid move so it will forfeit
 		if bestMove == nil {
 			gr.endGame("forfeit", gr.player1.Color)
 			return
 		}
-
-		gr.mu.Lock()
-		defer gr.mu.Unlock()
 
 		if gr.status != StatusOngoing {
 			return

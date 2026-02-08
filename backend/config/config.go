@@ -37,7 +37,7 @@ var (
 /_/   /_/_/ .___/     /_/   /_/\____/ .___/
          /_/                       /_/      `
 
-	Version = "1.0.0"
+	Version = "1.0.1"
 	Host    = ":8000"
 
 	AllowedOrigins []string
