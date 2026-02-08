@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand/v2"
 
 	"github.com/CDavidSV/online-flip-flop/games"
@@ -276,8 +277,7 @@ func (ai *FlipFlopAI) Name() string {
 		"Leone",
 	}
 
-	randIndex := rand.IntN(len(names))
-	return names[randIndex]
+	return fmt.Sprintf("%s (AI)", names[rand.IntN(len(names))])
 }
 
 func (ai *FlipFlopAI) SetGame(game games.Game) {
