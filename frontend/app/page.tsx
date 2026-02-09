@@ -220,6 +220,12 @@ export default function Home() {
                                 message: errorInfo.message,
                             });
                             break;
+                        case ErrorCode.ROOM_FULL:
+                            joinGameform.setError("roomId", {
+                                type: "manual",
+                                message: errorInfo.message,
+                            });
+                            break;
                         default:
                             joinGameform.setError("root", {
                                 type: "manual",

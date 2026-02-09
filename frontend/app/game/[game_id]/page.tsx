@@ -157,6 +157,7 @@ export default function GamePage() {
                 case ErrorCode.ROOM_NOT_FOUND:
                 case ErrorCode.ROOM_CLOSED:
                 case ErrorCode.GAME_ENDED:
+                case ErrorCode.ROOM_FULL:
                     toast.error(errorInfo.message);
                     router.push("/");
                     break;
