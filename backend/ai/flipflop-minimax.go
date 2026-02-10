@@ -104,8 +104,10 @@ func (ai *FlipFlopAI) evaluate() int {
 		winner := ai.game.GetWinner()
 		if winner == ai.aiPlayer.Color {
 			return MAX_SCORE
-		} else {
+		} else if winner == ai.opponentPlayer.Color {
 			return -MAX_SCORE
+		} else {
+			return 0 // Draw
 		}
 	}
 
