@@ -102,11 +102,12 @@ func (ai *FlipFlopAI) filterSafeMoves(moves []games.ValidMove, player *games.FFP
 func (ai *FlipFlopAI) evaluate() int {
 	if ai.game.IsGameEnded() {
 		winner := ai.game.GetWinner()
-		if winner == ai.aiPlayer.Color {
+		switch winner {
+		case ai.aiPlayer.Color:
 			return MAX_SCORE
-		} else if winner == ai.opponentPlayer.Color {
+		case ai.opponentPlayer.Color:
 			return -MAX_SCORE
-		} else {
+		default:
 			return 0 // Draw
 		}
 	}
