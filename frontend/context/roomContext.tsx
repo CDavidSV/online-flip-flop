@@ -1,7 +1,7 @@
 "use client";
 
 import { useWebSocket } from "./wsContext";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     GameMode,
     GameType,
@@ -26,6 +26,7 @@ import {
     useState,
     useRef,
 } from "react";
+import { toast } from "sonner";
 
 interface GameRoomContext {
     roomId: string | null;
@@ -100,6 +101,7 @@ export const useGameRoom = () => {
 export function GameRoomProvider({ children }: { children: ReactNode }) {
     const { isConnected, sendRequest, on, clientId } = useWebSocket();
     const pathname = usePathname();
+    const router = useRouter();
 
     const previousPathRef = useRef<string | null>(null);
 
@@ -235,12 +237,21 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
             },
         );
 
+        const cleanupKicked = on("kicked", () => {
+            toast.warning(
+                "Game room was closed due to inactivity.",
+            );
+            resetState();
+            router.push("/");
+        });
+
         // Cleanup event listeners
         return () => {
             cleanupPlayerLeft();
             cleanupStart();
             cleanupEnd();
             cleanupRejoin();
+            cleanupKicked();
         };
     }, [on]);
 

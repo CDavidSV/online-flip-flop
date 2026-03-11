@@ -57,10 +57,11 @@ type WSEventType =
     | "player_rejoined"
     | "joined"
     | "rematch_requested"
-    | "rematch_cancelled";
+    | "rematch_cancelled"
+    | "kicked";
 
 // Game state types
-type GameStatus = "waiting_for_players" | "ongoing" | "closed" | "ended";
+type GameStatus = "waiting_for_players" | "waiting_for_start" | "ongoing" | "closed" | "ended";
 
 interface CreateGameRequest {
     username: string;

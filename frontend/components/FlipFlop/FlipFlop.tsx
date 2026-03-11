@@ -48,8 +48,6 @@ export function FlipFlop({
         null,
     );
 
-    const [turnIndicator, setTurnIndicator] = useState(false);
-    const [isFadingOut, setIsFadingOut] = useState(false);
     const boardSize = type === GameType.FLIPFLOP_3x3 ? 3 : 5;
 
     useEffect(() => {
@@ -60,18 +58,11 @@ export function FlipFlop({
 
                 setSelectedPiece(null);
                 setValidMoves([]);
-
-                showTurnIndicator();
             }
         });
 
         const cleanupStart = on("start", () => {
             createBoard();
-
-            // Show turn indicator when game starts
-            setTimeout(() => {
-                showTurnIndicator();
-            }, 500);
         });
 
         return () => {
@@ -81,15 +72,6 @@ export function FlipFlop({
     }, [side, on]);
 
     useEffect(() => {
-        if (gameStatus === "ongoing") {
-            // Show turn indicator when game starts
-            setTimeout(() => {
-                showTurnIndicator();
-            }, 500);
-        }
-    }, [gameStatus]);
-
-    useEffect(() => {
         if (initialBoardState) {
             const parsedBoard = parseBoardState(initialBoardState);
             setGameBoard(parsedBoard);
@@ -97,17 +79,6 @@ export function FlipFlop({
             createBoard();
         }
     }, [initialBoardState]);
-
-    const showTurnIndicator = () => {
-        setIsFadingOut(false);
-        setTurnIndicator(true);
-        setTimeout(() => {
-            setIsFadingOut(true);
-        }, TURN_INDICATOR_DURATION - 300);
-        setTimeout(() => {
-            setTurnIndicator(false);
-        }, TURN_INDICATOR_DURATION);
-    };
 
     const createBoard = () => {
         const board: (FlipFlopPiece | null)[][] = [];
@@ -441,52 +412,7 @@ export function FlipFlop({
     };
 
     return (
-        <div className='relative w-full h-full aspect-square'>
-            {/* Turn Indicator Banner */}
-            {turnIndicator && (
-                <div
-                    className={cn(
-                        "absolute top-0 left-1/2 -translate-x-1/2 z-30 transition-all duration-300",
-                        isFadingOut
-                            ? "animate-out fade-out slide-out-to-top-5"
-                            : "animate-in fade-in slide-in-from-top-5",
-                    )}
-                >
-                    <div
-                        className={cn(
-                            "px-8 py-4 rounded-b-2xl shadow-2xl backdrop-blur-sm border-4 border-t-0 flex items-center gap-3 min-w-[250px] justify-center",
-                            currentTurn === PlayerColor.WHITE
-                                ? "bg-white/95 border-gray-300 text-gray-900"
-                                : "bg-gray-900/95 border-gray-700 text-white",
-                        )}
-                    >
-                        <div
-                            className={cn(
-                                "w-4 h-4 rounded-full animate-pulse",
-                                currentTurn === PlayerColor.WHITE
-                                    ? "bg-gray-900"
-                                    : "bg-white",
-                            )}
-                        />
-                        <span className='font-bold text-lg tracking-wide'>
-                            {isSpectator
-                                ? `${currentTurn === PlayerColor.WHITE ? "White" : "Black"}'s Turn`
-                                : currentTurn === side
-                                  ? "Your Turn"
-                                  : `${currentTurn === PlayerColor.WHITE ? "White" : "Black"}'s Turn`}
-                        </span>
-                        <div
-                            className={cn(
-                                "w-4 h-4 rounded-full animate-pulse",
-                                currentTurn === PlayerColor.WHITE
-                                    ? "bg-gray-900"
-                                    : "bg-white",
-                            )}
-                        />
-                    </div>
-                </div>
-            )}
-
+        <div className='relative w-full h-full'>
             <div
                 className={cn(
                     "w-full h-full grid gap-0.5 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 shadow-inner border-4 border-gray-300 dark:border-gray-600",
@@ -572,7 +498,7 @@ export function FlipFlop({
                                 {piece && (
                                     <Image
                                         className={cn(
-                                            "p-2 md:p-3 transition-transform duration-200 relative z-20 select-none",
+                                            "p-[5%] transition-transform duration-200 relative z-20 select-none",
                                             piece.selected
                                                 ? "scale-105"
                                                 : "scale-100",

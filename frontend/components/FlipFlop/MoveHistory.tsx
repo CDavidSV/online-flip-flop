@@ -46,11 +46,11 @@ export function MoveHistory({
                                   : "bg-red-50 dark:bg-red-900/50 text-red-800 dark:text-red-200"
                         }`}
                     >
-                        <span className='text-sm font-medium w-1/4'>
+                        <span className='text-sm font-medium w-3/4'>
                             {move.id}.
                             <span className='ml-1 text-xs'>{move.player}</span>
                         </span>
-                        <span className='font-mono text-sm w-3/4 text-right'>
+                        <span className='font-mono text-sm w-1/4 text-right'>
                             {move.notation}
                         </span>
                     </div>

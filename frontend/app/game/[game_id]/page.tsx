@@ -677,16 +677,16 @@ export default function GamePage() {
                         <FlipFlopLoader />
                     </div>
                 ) : (
-                    <div className='md:flex flex-col md:flex-row md:h-screen min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 font-inter p-4 gap-4'>
+                    <div className='flex flex-col md:flex-row md:h-screen min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 font-inter p-4 gap-4'>
                         {/* Main Game Area */}
-                        <div className='flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-9 md:p-10 flex-col items-center justify-between overflow-hidden relative'>
-                            {gameStatus === "ongoing" && (
-                                <div className='absolute top-3 left-3 md:top-4 md:left-4'>
+                        <div className='flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-5 flex-col items-center justify-start relative'>
+                            <div className='w-full'>
+                                {gameStatus === "ongoing" && (
                                     <div
-                                        className={`px-2 py-1 md:px-4 md:py-2 rounded-md md:rounded-lg font-semibold text-xs md:text-sm transition-all ${
-                                            isMyTurn
-                                                ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 animate-pulse"
-                                                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                                        className={`w-fit px-2 py-1 md:px-4 md:py-2 rounded-md md:rounded-lg font-semibold text-xs shadow-lg md:text-sm transition-all ${
+                                            currentTurn === currentPlayer?.color
+                                                ? "bg-blue-600/80 text-white shadow-blue-600/50 animate-pulse"
+                                                : "bg-red-500 text-white shadow-red-500/50"
                                         }`}
                                     >
                                         {!isSpectator && (
@@ -700,30 +700,33 @@ export default function GamePage() {
                                             currentTurn !== null &&
                                             `${activePlayer?.username || "Unknown"} is playing`}
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
 
-                            <div className='flex items-center justify-center text-lg font-semibold text-red-500 dark:text-red-400 mb-4'>
-                                {opponentPlayer &&
-                                gameStatus !== "waiting_for_players"
+                            <div className='text-lg font-semibold text-center text-red-500 dark:text-red-400 mb-4'>
+                                {opponentPlayer && opponentPlayer.is_active
                                     ? opponentPlayer?.username
-                                    : "Waiting for opponent player to join..."}
+                                    : "Waiting for player to join..."}
                             </div>
 
-                            <div className='flex items-center justify-center w-full max-w-[80vh] max-h-[80vh]'>
-                                <FlipFlop
-                                    type={gameType}
-                                    side={
-                                        currentPlayer?.color ||
-                                        PlayerColor.WHITE
-                                    }
-                                    initialBoardState={initialGameBoard}
-                                    onMoveMade={handleMoveMade}
-                                />
+                            <div className='w-full aspect-square md:aspect-auto md:flex-1 md:min-h-0 flex items-center justify-center md:[container-type:size]'>
+                                <div className='w-full h-full md:h-auto md:aspect-square md:w-[min(100cqw,100cqh)]'>
+                                    <FlipFlop
+                                        type={gameType}
+                                        side={
+                                            currentPlayer?.color ||
+                                            PlayerColor.WHITE
+                                        }
+                                        initialBoardState={initialGameBoard}
+                                        onMoveMade={handleMoveMade}
+                                    />
+                                </div>
                             </div>
 
-                            <div className='flex items-center justify-center text-lg font-semibold text-blue-600 dark:text-blue-400 mt-4'>
-                                {currentPlayer?.username || "PLAYER 1 (YOU)"}
+                            <div className='text-lg font-semibold text-blue-600 dark:text-blue-400 mt-4'>
+                                {currentPlayer && currentPlayer.is_active
+                                    ? currentPlayer?.username
+                                    : "Waiting for player to join..."}
                             </div>
                         </div>
 

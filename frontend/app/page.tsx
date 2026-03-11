@@ -419,7 +419,7 @@ export default function Home() {
                 />
 
                 <Carousel
-                    opts={{ watchDrag: false, duration: 10 }}
+                    opts={{ watchDrag: false, duration: 10, skipSnaps: true }}
                     className='w-screen'
                     setApi={(api) => setCarouselApi(api)}
                 >
