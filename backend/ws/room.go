@@ -56,6 +56,7 @@ type GameRoom struct {
 	Game              games.Game
 	GameMode          GameMode
 	GameType          games.GameType
+	gameStarted       bool
 	ai                ai.AI
 	aiThinking        bool
 	aiCancelFunc      context.CancelFunc
@@ -67,13 +68,15 @@ type GameRoom struct {
 	mu                sync.RWMutex
 	playerMessages    []SavedMessage
 	spectatorMessages []SavedMessage
+	lastInactiveTime  time.Time
 }
 
 const (
-	StatusWaiting Status = "waiting_for_players" // Initial state, waiting for players to join.
-	StatusOngoing Status = "ongoing"             // Players have joined and the game has started.
-	StatusEnded   Status = "ended"               // Game has ended but room is still open.
-	StatusClosed  Status = "closed"              // Game has ended or room is closed (no active players).
+	StatusWaiting      Status = "waiting_for_players" // Initial state, waiting for players to join.
+	StatusWaitingStart Status = "waiting_for_start"   // Both players have joined but the game has not started yet.
+	StatusOngoing      Status = "ongoing"             // Players have joined and the game has started.
+	StatusEnded        Status = "ended"               // Game has ended but room is still open.
+	StatusClosed       Status = "closed"              // Game has ended or room is closed (no active players).
 )
 
 type RoomConfig struct {
@@ -102,11 +105,13 @@ func NewGameRoom(config RoomConfig, player InitialPlayer) (*GameRoom, error) {
 		Game:              game,
 		GameMode:          config.GameMode,
 		GameType:          config.GameType,
+		gameStarted:       false,
 		conns:             make(map[string]*ClientConnection),
 		status:            StatusWaiting,
 		logger:            config.Logger,
 		playerMessages:    []SavedMessage{},
 		spectatorMessages: []SavedMessage{},
+		lastInactiveTime:  time.Now(),
 	}
 
 	// Set up first player
@@ -128,8 +133,16 @@ func NewGameRoom(config RoomConfig, player InitialPlayer) (*GameRoom, error) {
 
 	// Set up AI player for singleplayer mode
 	if config.GameMode == "singleplayer" {
+		room.status = StatusWaitingStart
+
 		// Initialize AI for this game type
-		gameAI, err := ai.NewAI(game, config.GameType, config.AIDifficulty)
+		aiGameCopy, err := games.NewGame(config.GameType)
+		if err != nil {
+			config.Logger.Error("Failed to initialize AI game copy", "game_type", config.GameType, "error", err)
+			return nil, err
+		}
+
+		gameAI, err := ai.NewAI(aiGameCopy, config.GameType, config.AIDifficulty)
 		if err != nil {
 			config.Logger.Error("Failed to initialize AI", "game_type", config.GameType, "error", err)
 			return nil, err
@@ -255,7 +268,7 @@ func (gr *GameRoom) playersInactive() bool {
 // Checks if both player slots are active.
 // Requires a Read lock before calling.
 func (gr *GameRoom) playersActive() bool {
-	return !gr.playersInactive()
+	return (gr.player1 != nil && gr.player1.IsActive) && (gr.player2 != nil && gr.player2.IsActive)
 }
 
 // Checks if the room and game status allow an action to proceed. Returns an error if not.
@@ -298,6 +311,13 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 			Username:    player.Username,
 		}
 		gr.conns[id] = clientConnection
+
+		// If the game has already started, update the status to ongoing again
+		if gr.playersActive() && gr.gameStarted {
+			gr.status = StatusOngoing
+		} else {
+			gr.status = StatusWaitingStart
+		}
 
 		// Notify player rejoined
 		gr.broadcastGameUpdate(MsgPlayerRejoined, types.JSONMap{
@@ -346,6 +366,11 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 			IsActive:     true,
 			wantsRematch: false,
 		}
+
+		if gr.playersActive() {
+			gr.status = StatusWaitingStart
+		}
+
 		return false, nil
 	}
 
@@ -356,47 +381,35 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 }
 
 // Called when a client leaves the room.
-// If all players leave, the room then is closed for cleanup.
+// If all players leave, the room then is closed after a timeout period if no one rejoins.
 func (gr *GameRoom) LeaveRoom(id string) {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
 	delete(gr.conns, id)
 
+	// Spectators do not count as players
 	player := gr.getPlayer(id)
 	if player != nil {
 		player.IsActive = false
-		player.wantsRematch = false
 
-		gr.broadcastGameUpdate(MsgTypeRematchCancelled, types.JSONMap{
-			"player_id": id,
-		}, &id)
+		if player.wantsRematch {
+			player.wantsRematch = false
+			gr.broadcastGameUpdate(MsgTypeRematchCancelled, types.JSONMap{
+				"player_id": id,
+			}, &id)
+		}
+
 		gr.broadcastGameUpdate(MsgPlayerLeftRoom, types.JSONMap{
 			"player_id": id,
 		}, nil)
 
-		// If the game mode is singleplayer, close the room and cancel any ongoing AI computation
-		if gr.GameMode == "singleplayer" {
-			gr.status = StatusClosed
-
-			if gr.aiThinking {
-				gr.cancelAIComputation()
-			}
-			return
-		}
+		gr.status = StatusWaiting
 
 		if gr.playersInactive() {
-			gr.status = StatusClosed
-
-			if len(gr.conns) > 0 {
-				// Notify spectators that the room is closed
-				gr.broadcastGameUpdate(MsgTypeGameEnd, types.JSONMap{
-					"reason": "players_left",
-				}, nil)
-			}
+			gr.lastInactiveTime = time.Now()
 		}
 	}
-
 }
 
 // Starts the game if both player slots are filled and active.
@@ -405,11 +418,8 @@ func (gr *GameRoom) StartGame() bool {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
-	if gr.status == StatusOngoing || gr.status == StatusClosed || gr.status == StatusEnded {
-		return false
-	}
-
-	if gr.playersActive() {
+	if gr.playersActive() && !gr.gameStarted && gr.status == StatusWaitingStart {
+		gr.gameStarted = true
 		gr.status = StatusOngoing
 		gr.broadcastGameUpdate(MsgTypeGameStart, gr.gameState(), nil)
 		return true
@@ -471,6 +481,7 @@ func (gr *GameRoom) HandleMove(clientID, requestID string, movePayload json.RawM
 
 	// Trigger AI move if in singleplayer mode
 	if gr.GameMode == "singleplayer" {
+		gr.ai.GetGame().ApplyMove(movePayload) // Update AI's internal game state
 		go gr.handleAIMove()
 	}
 
@@ -555,14 +566,14 @@ func (gr *GameRoom) handleAIMove() {
 			return
 		}
 
-		if gr.status != StatusOngoing {
-			return
-		}
 		err = gr.Game.ApplyMove(bestMove)
 		if err != nil {
 			gr.logger.Error("AI move application failed", "error", err)
 			return
 		}
+
+		// Apply the move for the AI's internal game state
+		gr.ai.GetGame().ApplyMove(bestMove)
 
 		gr.broadcastGameUpdate(MsgTypeMove, types.JSONMap{
 			"player_id": aiPlayer.ID,
@@ -746,6 +757,38 @@ func (gr *GameRoom) GetMessages(spectator bool) []SavedMessage {
 	}
 
 	return messages
+}
+
+func (gr *GameRoom) GetCurrentInactiveTime() time.Time {
+	gr.mu.RLock()
+	defer gr.mu.RUnlock()
+
+	return gr.lastInactiveTime
+}
+
+func (gr *GameRoom) CloseRoomIfInactive() {
+	gr.mu.Lock()
+	defer gr.mu.Unlock()
+
+	if gr.status == StatusClosed {
+		return
+	}
+
+	// Check if the room has been inactive for longer by the timeout
+	if (time.Since(gr.lastInactiveTime) > time.Duration(config.RoomInactiveTimeout)*time.Second) && gr.playersInactive() {
+		// Close the room
+		gr.status = StatusClosed
+
+		// Cancel any ongoing AI computation
+		if gr.aiThinking {
+			gr.cancelAIComputation()
+		}
+
+		// Kick out all remaining spectators
+		gr.broadcastGameUpdate(MsgTypeKicked, types.JSONMap{
+			"reason": "room_inactive",
+		}, nil)
+	}
 }
 
 func (gr *GameRoom) cancelAIComputation() {

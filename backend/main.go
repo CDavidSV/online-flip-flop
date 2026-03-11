@@ -31,8 +31,12 @@ func main() {
 
 	// Register WebSocket handler
 	gameServer := ws.NewGameServer(logger)
+	gameServer.Start()
+	defer gameServer.Stop()
+
+	// Wsocket endpoint
 	r.Get("/ws", ws.WSHandler(gameServer))
 
-	// Start Server
+	// Start listening
 	log.Fatal(http.ListenAndServe(config.Host, r))
 }

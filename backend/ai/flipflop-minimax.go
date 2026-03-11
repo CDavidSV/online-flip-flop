@@ -291,6 +291,10 @@ func (ai *FlipFlopAI) SetGame(game games.Game) {
 	ai.game = flipFlopGame
 }
 
+func (ai *FlipFlopAI) GetGame() games.Game {
+	return ai.game
+}
+
 func (ai *FlipFlopAI) GetBestMove(ctx context.Context, aiPlayer games.PlayerSide) (json.RawMessage, error) {
 	ai.ctx = ctx
 	if aiPlayer == games.COLOR_WHITE {

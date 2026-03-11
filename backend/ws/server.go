@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"math/rand"
@@ -34,6 +35,8 @@ type Server struct {
 	rooms     *gws.ConcurrentMap[string, *GameRoom]
 	logger    *slog.Logger
 	validator *validator.CustomValidator
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 // Loads a value from the session storage of a connection.
@@ -87,11 +90,24 @@ func (s *Server) generateRoomID() (string, error) {
 
 // Returns a new websocket server instance.
 func NewGameServer(logger *slog.Logger) *Server {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		rooms:     gws.NewConcurrentMap[string, *GameRoom](),
 		logger:    logger,
 		validator: validator.New(),
+		ctx:       ctx,
+		cancel:    cancel,
 	}
+}
+
+func (s *Server) Start() {
+	// Starts the loop to periodically check for inactive rooms to delete.
+	go s.deleteInactiveRoomsJob()
+}
+
+func (s *Server) Stop() {
+	s.logger.Info("Stopping game server...")
+	s.cancel()
 }
 
 // Websocket handler.
@@ -149,6 +165,32 @@ func (s *Server) GetGameRoom(roomID string) *GameRoom {
 	}
 
 	return room
+}
+
+// Checks for inactive rooms every minute and deletes them if they have been inactive for longer than the configured timeout.
+func (s *Server) deleteInactiveRoomsJob() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	roomsToDelete := make([]*GameRoom, 0)
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.rooms.Range(func(key string, room *GameRoom) bool {
+				roomsToDelete = append(roomsToDelete, room)
+				return true
+			})
+			for _, room := range roomsToDelete {
+				room.CloseRoomIfInactive()
+				if room.IsClosed() {
+					s.DeleteGameRoom(room)
+				}
+			}
+			roomsToDelete = roomsToDelete[:0]
+		}
+	}
 }
 
 // Deletes a game room from the server and clears the room reference from all connected clients.

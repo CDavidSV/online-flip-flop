@@ -37,7 +37,7 @@ var (
 /_/   /_/_/ .___/     /_/   /_/\____/ .___/
          /_/                       /_/      `
 
-	Version = "1.0.4"
+	Version = "1.1.0"
 	Host    = ":8000"
 
 	AllowedOrigins []string
@@ -51,6 +51,7 @@ var (
 		MaxAge:           300,
 	}
 
-	AIMoveDelay    = 1  // Delay in seconds before AI makes a move
-	AIThinkTimeout = 30 // Time in seconds for AI to think before timing out
+	AIMoveDelay         = 1      // Delay in seconds before AI makes a move
+	AIThinkTimeout      = 30     // Time in seconds for AI to think before timing out
+	RoomInactiveTimeout = 5 * 60 // Time in seconds before an inactive room is closed
 )

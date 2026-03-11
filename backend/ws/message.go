@@ -19,6 +19,7 @@ const (
 	MsgTypeJoinedRoom       MsgType = "joined"            // Response after joining a room
 	MsgTypeLeaveRoom        MsgType = "leave"             // Leave the current game room
 	MsgTypeLeftRoom         MsgType = "left"              // Response after leaving a room
+	MsgTypeKicked           MsgType = "kicked"            // Notification that a player has been kicked from the room
 	MsgPlayerLeftRoom       MsgType = "player_left"       // Notification that a player has left the room
 	MsgPlayerRejoined       MsgType = "player_rejoined"   // Notification that a player has rejoined the room
 	MsgTypeMove             MsgType = "move"              // Make a move in the game

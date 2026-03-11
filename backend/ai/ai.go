@@ -17,6 +17,7 @@ var validDifficulties = []AIDifficulty{"easy", "medium", "hard"}
 type AI interface {
 	GetBestMove(ctx context.Context, aiPlayer games.PlayerSide) (json.RawMessage, error)
 	SetGame(game games.Game)
+	GetGame() games.Game
 	Name() string
 }
 
