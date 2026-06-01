@@ -1,0 +1,18 @@
+services:
+  backend:
+    platform: linux/amd64
+    build: ./backend
+    ports:
+      - "4001:4001"
+    networks:
+      - onlineFlipFlopNetwork
+  frontend:
+    platform: linux/amd64
+    build: ./frontend
+    ports:
+      - "4002:4002"
+    networks:
+      - onlineFlipFlopNetwork
+networks:
+  onlineFlipFlopNetwork:
+    driver: bridge
