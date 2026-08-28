@@ -15,6 +15,8 @@ import (
 )
 
 func main() {
+	config.ParseFlags()
+
 	r := chi.NewRouter()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,

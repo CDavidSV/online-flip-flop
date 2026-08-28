@@ -16,17 +16,23 @@ var allowedProdOrigins = []string{
 }
 
 func init() {
-	host := flag.String("host", "localhost:8000", "Host address for the server")
-	prod := flag.Bool("prod", false, "Run in production mode")
+	AllowedOrigins = allowedDevOrigins
+}
+
+var hostFlag = flag.String("host", "localhost:8000", "Host address for the server")
+var prodFlag = flag.Bool("prod", false, "Run in production mode")
+
+// ParseFlags applies command-line configuration for the server executable.
+func ParseFlags() {
 	flag.Parse()
 
-	Host = *host
-
-	if *prod {
+	Host = *hostFlag
+	if *prodFlag {
 		AllowedOrigins = allowedProdOrigins
 	} else {
 		AllowedOrigins = allowedDevOrigins
 	}
+	CorsConfig.AllowedOrigins = AllowedOrigins
 }
 
 var (
@@ -43,7 +49,7 @@ var (
 	AllowedOrigins []string
 	APILogLevel    = log.INFO
 	CorsConfig     = cors.Options{
-		AllowedOrigins:   AllowedOrigins,
+		AllowedOrigins:   allowedDevOrigins,
 		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS"},
 		AllowedHeaders:   []string{"User-Agent", "Content-Type", "Accept", "Accept-Encoding", "Cache-Control"},
 		ExposedHeaders:   []string{"Link"},
