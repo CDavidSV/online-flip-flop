@@ -82,15 +82,15 @@ export function Chat({ initialMessages }: { initialMessages?: ChatMessage[] }) {
     }, [chatMessages]);
 
     return (
-        <Card className='md:flex-1 md:min-h-96 flex flex-col pt-6 pb-0'>
-            <CardHeader>
-                <CardTitle className='flex items-center text-base'>
-                    <MessageSquare size={16} className='mr-2' />
+        <Card className='flex flex-col gap-0 overflow-hidden rounded-lg border-white/10 bg-white/[0.025] py-0 shadow-[0_14px_42px_-30px_rgba(0,0,0,0.85)] md:min-h-80 md:flex-1'>
+            <CardHeader className='gap-0 border-b border-white/[0.07] px-4 py-4'>
+                    <CardTitle className='flex items-center text-sm font-semibold text-slate-100'>
+                        <MessageSquare size={16} className='mr-2 text-violet-300' />
                     {isSpectator ? "Spectator Chat" : "Game Chat"}
                 </CardTitle>
             </CardHeader>
-            <CardContent className='p-0 h-[400px] md:flex-1 md:min-h-0'>
-                <ScrollArea className='h-full p-4' viewportRef={viewportRef}>
+            <CardContent className='h-[320px] p-0 md:min-h-0 md:flex-1'>
+                <ScrollArea className='h-full px-3 py-4' viewportRef={viewportRef}>
                     <div className='flex flex-col space-y-3'>
                         {chatMessages.map((msg, index) => (
                             <div
@@ -102,10 +102,10 @@ export function Chat({ initialMessages }: { initialMessages?: ChatMessage[] }) {
                                 }`}
                             >
                                 <div
-                                    className={`max-w-[80%] px-3 py-2 rounded-xl text-sm shadow-md ${
+                                    className={`max-w-[80%] rounded-lg border px-3 py-2 text-sm shadow-sm ${
                                         msg.client_id === clientId
-                                            ? "bg-blue-600 text-white rounded-br-none"
-                                            : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-tl-none"
+                                            ? "rounded-br-sm border-violet-300/25 bg-violet-600/25 text-violet-50"
+                                            : "rounded-tl-sm border-red-300/20 bg-red-500/10 text-red-50"
                                     }`}
                                 >
                                     <strong className='block text-xs mb-0.5 opacity-80'>
@@ -123,18 +123,20 @@ export function Chat({ initialMessages }: { initialMessages?: ChatMessage[] }) {
                     </div>
                 </ScrollArea>
             </CardContent>
-            <CardFooter className='!p-4 border-t border-gray-100 dark:border-gray-700'>
-                <div className='flex w-full space-x-2'>
+            <CardFooter className='!border-t !border-white/[0.08] !p-3'>
+                <div className='flex w-full gap-2'>
                     <Input
                         placeholder='Type a message...'
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        className='flex-1 rounded-lg'
+                        className='min-w-0 flex-1 border-white/10 bg-black/25 placeholder:text-slate-500 focus-visible:border-violet-400 focus-visible:ring-violet-400/25'
                     />
                     <Button
+                        aria-label='Send message'
                         onClick={handleSendMessage}
                         disabled={messageInput.trim() === ""}
+                        className='bg-violet-600 text-white hover:bg-violet-500'
                     >
                         <Send size={18} />
                     </Button>

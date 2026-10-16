@@ -1,6 +1,7 @@
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -13,21 +14,21 @@ interface RulesDialogProps {
 export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className='max-h-[60vh] md:min-w-2xl overflow-y-auto'>
+            <DialogContent className='max-h-[min(82vh,48rem)] overflow-y-auto sm:max-w-2xl'>
                 <DialogHeader>
-                    <DialogTitle className='text-3xl font-bold'>
+                    <DialogTitle className='text-2xl font-semibold tracking-tight text-violet-100'>
                         Game Rules
                     </DialogTitle>
                 </DialogHeader>
-                <p>
+                <DialogDescription className='text-sm leading-6 text-muted-foreground'>
                     FlipFlop is an abstract strategy game for 2 players,
                     invented in 2009 by Masahiro Nakajima. Its distinctive
                     characteristic is that the pieces move differently every
                     turn.
-                </p>
+                </DialogDescription>
 
                 <section>
-                    <h3 className='text-xl font-medium mt-4 mb-2'>Goal</h3>
+                    <h3 className='mb-2 mt-5 text-sm font-semibold uppercase tracking-wider text-violet-200'>Goal</h3>
                     <ul className='list-disc list-inside space-y-1 ml-4 text-sm'>
                         <li>
                             You win when any of your pieces is in the{" "}
@@ -47,7 +48,7 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                 </section>
 
                 <section>
-                    <h3 className='text-xl font-medium mt-4 mb-2'>Setup</h3>
+                    <h3 className='mb-2 mt-5 text-sm font-semibold uppercase tracking-wider text-violet-200'>Setup</h3>
                     <ul className='list-disc list-inside space-y-1 ml-4 text-sm'>
                         <li>
                             The game is played on a checkered board (
@@ -81,7 +82,7 @@ export default function RulesDialog({ open, onOpenChange }: RulesDialogProps) {
                 </section>
 
                 <section>
-                    <h3 className='text-xl font-medium mt-4 mb-2'>
+                    <h3 className='mb-2 mt-5 text-sm font-semibold uppercase tracking-wider text-violet-200'>
                         Play (Movement and Capturing)
                     </h3>
                     <ul className='list-disc list-inside space-y-3 ml-4 text-sm'>

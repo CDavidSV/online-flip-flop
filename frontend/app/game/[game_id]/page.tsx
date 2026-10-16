@@ -537,136 +537,106 @@ export default function GamePage() {
 
             {/* Game End Popup */}
             {showGameEnd && gameEndResult && (
-                <div className='fixed inset-0 flex items-center justify-center z-40 transition-all duration-300 animate-in fade-in zoom-in-95'>
-                    <div className='fixed inset-0 bg-black/60 backdrop-blur-sm' />
-
-                    <div className='relative z-10'>
-                        {isSpectator && (
-                            <div className='bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl shadow-2xl border-8 border-yellow-200 p-12 text-center min-w-[400px] animate-in slide-in-from-bottom-10 duration-700'>
-                                <h2 className='text-6xl font-black text-yellow-900 mb-4 tracking-wider drop-shadow-lg'>
-                                    GAME OVER
-                                </h2>
-                                <p className='text-3xl text-yellow-800 font-bold'>
-                                    {gameEndResult.winner ===
-                                    currentPlayer?.color
-                                        ? currentPlayer?.username
-                                        : opponentPlayer?.username}{" "}
-                                    Wins!
-                                </p>
-                                <button
-                                    onClick={handleReturnToMenu}
-                                    className='mt-8 px-8 py-4 bg-yellow-900 text-yellow-100 font-bold text-xl rounded-xl hover:bg-yellow-800 transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer'
-                                >
-                                    Leave Game
-                                </button>
-                            </div>
+                <div className='fixed inset-0 z-40 flex items-center justify-center p-4 animate-in fade-in duration-300'>
+                    <div className='fixed inset-0 bg-black/75 backdrop-blur-sm' />
+                    <div
+                        role='dialog'
+                        aria-modal='true'
+                        aria-labelledby='game-end-title'
+                        className={cn(
+                            "relative z-10 w-full max-w-md rounded-xl border bg-[#100d18]/95 p-6 text-center shadow-2xl backdrop-blur-xl sm:p-8",
+                            gameEndResult.reason === "draw"
+                                ? "border-white/10"
+                                : gameEndResult.winner === currentPlayer?.color
+                                                                    ? "border-emerald-400/30 shadow-[0_24px_80px_-32px_rgba(16,185,129,0.3)]"
+                                  : "border-rose-400/25",
                         )}
+                    >
+                        <p
+                            className={cn(
+                                "text-xs font-semibold uppercase tracking-[0.18em]",
+                                gameEndResult.reason === "draw"
+                                    ? "text-muted-foreground"
+                                    : gameEndResult.winner === currentPlayer?.color
+                                                                            ? "text-emerald-300"
+                                      : "text-rose-300",
+                            )}
+                        >
+                            {isSpectator ? "Game over" : "Match complete"}
+                        </p>
+                        <h2
+                            id='game-end-title'
+                            className={cn(
+                                "mt-3 text-3xl font-bold sm:text-4xl",
+                                gameEndResult.reason === "draw"
+                                    ? "text-white"
+                                    : gameEndResult.winner === currentPlayer?.color
+                                                                            ? "text-emerald-100"
+                                      : "text-rose-100",
+                            )}
+                        >
+                            {isSpectator
+                                ? "GAME OVER"
+                                : gameEndResult.reason === "draw"
+                                  ? "DRAW"
+                                  : gameEndResult.winner === currentPlayer?.color
+                                    ? "VICTORY"
+                                    : "DEFEAT"}
+                        </h2>
+                        <p className='mt-3 text-sm leading-6 text-muted-foreground sm:text-base'>
+                            {isSpectator
+                                ? gameEndResult.winner === null
+                                    ? "The match ended in a draw."
+                                    : `${gameEndResult.winner === PlayerColor.WHITE ? "White" : "Black"} wins the match.`
+                                : gameEndResult.reason === "draw"
+                                  ? "Well played. The match ended in a draw."
+                                  : gameEndResult.winner === currentPlayer?.color
+                                    ? "You won the match. Ready for another?"
+                                    : "This one got away. Ready to try again?"}
+                        </p>
 
-                        {!isSpectator && (
-                            <div
-                                className={cn(
-                                    "rounded-3xl shadow-2xl border-8 p-12 text-center min-w-[400px] duration-700",
-                                    gameEndResult.reason === "draw"
-                                        ? "bg-gradient-to-br from-gray-400 to-gray-600 border-gray-300 animate-in spin-in-180"
-                                        : gameEndResult.winner ===
-                                            currentPlayer?.color
-                                          ? "bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 border-yellow-200 animate-in slide-in-from-bottom-10"
-                                          : "bg-gradient-to-br from-red-500 via-red-600 to-red-700 border-red-400 animate-in slide-in-from-top-10",
-                                )}
+                        {isSpectator ? (
+                            <Button
+                                onClick={handleReturnToMenu}
+                                className='mt-7 h-10 w-full rounded-md bg-violet-600 text-white hover:bg-violet-500'
                             >
-                                <h2
-                                    className={cn(
-                                        "font-black mb-4 tracking-wider drop-shadow-lg",
-                                        gameEndResult.reason === "draw"
-                                            ? "text-5xl text-white"
-                                            : "text-6xl",
-                                        gameEndResult.winner ===
-                                            currentPlayer?.color
-                                            ? "text-yellow-900"
-                                            : "text-white",
-                                    )}
-                                >
-                                    {gameEndResult.reason === "draw"
-                                        ? "DRAW!"
-                                        : gameEndResult.winner ===
-                                            currentPlayer?.color
-                                          ? "VICTORY!"
-                                          : "DEFEAT"}
-                                </h2>
-
-                                {gameEndResult.reason === "draw" ? (
-                                    <p className='text-2xl text-gray-100 font-semibold'>
-                                        Well Played!
-                                    </p>
-                                ) : gameEndResult.winner ===
-                                  currentPlayer?.color ? (
-                                    <p className='text-3xl text-yellow-800 font-bold'>
-                                        You Win!
-                                    </p>
-                                ) : (
-                                    <>
-                                        <p className='text-3xl text-red-100 font-bold'>
-                                            You Lose
-                                        </p>
-                                        <p className='text-xl text-red-200 mt-4'>
-                                            Better luck next time!
-                                        </p>
-                                    </>
-                                )}
-
-                                <div className='flex flex-row gap-4 justify-center flex-wrap'>
-                                    <button
+                                Leave Game
+                            </Button>
+                        ) : (
+                            <>
+                                <div className='mt-7 flex flex-col justify-center gap-2 sm:flex-row'>
+                                    <Button
+                                        variant='outline'
                                         onClick={handleReturnToMenu}
-                                        className={cn(
-                                            "mt-8 px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer",
-                                            gameEndResult.reason === "draw"
-                                                ? "bg-white text-gray-800 hover:bg-gray-100"
-                                                : gameEndResult.winner ===
-                                                    currentPlayer?.color
-                                                  ? "bg-yellow-900 text-yellow-100 hover:bg-yellow-800"
-                                                  : "bg-white text-red-600 hover:bg-red-50",
-                                        )}
+                                        className='h-10 border-white/10 bg-white/[0.025] hover:border-violet-300/30 hover:bg-violet-500/[0.07] sm:flex-1'
                                     >
                                         Leave Game
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
+                                        variant='outline'
                                         onClick={() => setShowGameEnd(false)}
-                                        className={cn(
-                                            "mt-8 px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer",
-                                            gameEndResult.reason === "draw"
-                                                ? "bg-white text-gray-800 hover:bg-gray-100"
-                                                : gameEndResult.winner ===
-                                                    currentPlayer?.color
-                                                  ? "bg-yellow-900 text-yellow-100 hover:bg-yellow-800"
-                                                  : "bg-white text-red-600 hover:bg-red-50",
-                                        )}
+                                        className='h-10 border-white/10 bg-white/[0.025] hover:border-violet-300/30 hover:bg-violet-500/[0.07] sm:flex-1'
                                     >
-                                        Go back
-                                    </button>
+                                        Back to game
+                                    </Button>
                                 </div>
-                                <button
-                                    onClick={() =>
-                                        rematch !== "requested"
-                                            ? requestRematch()
-                                            : cancelRematchRequest()
-                                    }
-                                    className={cn(
-                                        "mt-4 px-8 py-4 font-bold text-xl rounded-xl transition-all duration-200 hover:scale-105 shadow-lg cursor-pointer",
-                                        gameEndResult.reason === "draw"
-                                            ? "bg-white text-gray-800 hover:bg-gray-100"
-                                            : gameEndResult.winner ===
-                                                currentPlayer?.color
-                                              ? "bg-yellow-900 text-yellow-100 hover:bg-yellow-800"
-                                              : "bg-white text-red-600 hover:bg-red-50",
-                                    )}
-                                >
-                                    {rematch === "opponent_requested"
-                                        ? "Accept Rematch?"
-                                        : rematch === "requested"
-                                          ? "Cancel Rematch"
-                                          : "Rematch?"}
-                                </button>
-                            </div>
+                                <div className='mt-3 border-t border-white/10 pt-3'>
+                                    <Button
+                                        onClick={() =>
+                                            rematch !== "requested"
+                                                ? requestRematch()
+                                                : cancelRematchRequest()
+                                        }
+                                        className='h-10 w-full bg-violet-600 text-white hover:bg-violet-500'
+                                    >
+                                        {rematch === "opponent_requested"
+                                            ? "Accept Rematch?"
+                                            : rematch === "requested"
+                                              ? "Cancel Rematch"
+                                              : "Rematch?"}
+                                    </Button>
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>
@@ -677,16 +647,16 @@ export default function GamePage() {
                         <FlipFlopLoader />
                     </div>
                 ) : (
-                    <div className='flex flex-col md:flex-row md:h-screen min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 font-inter p-4 gap-4'>
+                    <div className='game-stage flex min-h-dvh flex-col gap-3 p-3 text-foreground md:h-dvh md:flex-row md:gap-4 md:overflow-hidden md:p-4'>
                         {/* Main Game Area */}
-                        <div className='flex flex-1 mb-4 md:mb-0 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-5 flex-col items-center justify-start relative'>
+                        <div className='relative mb-0 flex min-w-0 flex-1 flex-col items-center justify-start rounded-lg border border-white/10 bg-white/[0.025] p-3 shadow-[0_20px_70px_-38px_rgba(0,0,0,0.8)] md:overflow-hidden md:p-5'>
                             <div className='w-full'>
                                 {gameStatus === "ongoing" && (
                                     <div
                                         className={`w-fit px-2 py-1 md:px-4 md:py-2 rounded-md md:rounded-lg font-semibold text-xs shadow-lg md:text-sm transition-all ${
                                             currentTurn === currentPlayer?.color
-                                                ? "bg-blue-600/80 text-white shadow-blue-600/50 animate-pulse"
-                                                : "bg-red-500 text-white shadow-red-500/50"
+                                                ? "bg-violet-600/90 text-white shadow-violet-950/40 animate-pulse"
+                                                : "bg-red-600/90 text-white shadow-red-950/30"
                                         }`}
                                     >
                                         {!isSpectator && (
@@ -703,7 +673,7 @@ export default function GamePage() {
                                 )}
                             </div>
 
-                            <div className='text-lg font-semibold text-center text-red-500 dark:text-red-400 mb-4'>
+                            <div className='mb-4 text-center text-sm font-semibold text-red-300'>
                                 {opponentPlayer && opponentPlayer.is_active
                                     ? opponentPlayer?.username
                                     : "Waiting for player to join..."}
@@ -723,17 +693,17 @@ export default function GamePage() {
                                 </div>
                             </div>
 
-                            <div className='text-lg font-semibold text-blue-600 dark:text-blue-400 mt-4'>
+                            <div className='mt-4 text-sm font-medium text-violet-300'>
                                 {currentPlayer && currentPlayer.is_active
                                     ? currentPlayer?.username
                                     : "Waiting for player to join..."}
                             </div>
                         </div>
 
-                        <div className='flex flex-col w-full md:w-96 gap-4 mb-4 md:mb-0 md:min-h-0 overflow-y-auto'>
-                            <Card className='flex-shrink-0'>
-                                <CardHeader>
-                                    <CardTitle className='flex items-center justify-between'>
+                        <div className='mb-0 flex w-full flex-col gap-3 overflow-y-auto md:min-h-0 md:w-[22rem] md:gap-4'>
+                            <Card className='flex-shrink-0 gap-0 overflow-hidden rounded-lg border-white/10 bg-white/[0.025] py-0 shadow-[0_14px_42px_-30px_rgba(0,0,0,0.8)]'>
+                                <CardHeader className='gap-1 px-4 py-4'>
+                                    <CardTitle className='flex items-center justify-between text-sm font-semibold text-slate-100'>
                                         Game Room
                                         <Badge variant='secondary'>
                                             {gameStatus ===
@@ -744,12 +714,12 @@ export default function GamePage() {
                                                   : "Game Ended"}
                                         </Badge>
                                     </CardTitle>
-                                    <CardDescription className='text-sm'>
+                                    <CardDescription className='text-xs leading-5 text-slate-400'>
                                         Share this ID to invite a friend.
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent className='flex flex-col gap-3'>
-                                    <div className='flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-lg'>
+                                <CardContent className='flex flex-col gap-3 px-4'>
+                                    <div className='flex items-center justify-between rounded-md border border-white/[0.08] bg-black/25 p-2'>
                                         <span className='font-mono text-base truncate'>
                                             {game_id}
                                         </span>
@@ -757,7 +727,7 @@ export default function GamePage() {
                                             variant='ghost'
                                             size='icon'
                                             onClick={copyRoomId}
-                                            className='ml-2 w-8 h-8 flex-shrink-0 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                            className='ml-2 h-8 w-8 flex-shrink-0 text-slate-300 hover:bg-violet-500/10 hover:text-white'
                                         >
                                             {copied ? (
                                                 <Check
@@ -770,13 +740,13 @@ export default function GamePage() {
                                         </Button>
                                     </div>
                                 </CardContent>
-                                <CardFooter className='pt-0 flex flex-col gap-2'>
+                                <CardFooter className='flex flex-col gap-2 px-4 pb-4 pt-1'>
                                     {!isSpectator && gameStatus !== "ended" && (
                                         <Button
                                             onClick={handleForfeit}
                                             variant='destructive'
                                             disabled={gameStatus !== "ongoing"}
-                                            className='w-full text-white rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-[1.01]'
+                                            className='w-full transition-all hover:shadow-[0_8px_24px_-12px_rgba(220,38,38,0.45)]'
                                         >
                                             <Flag size={18} className='mr-2' />
                                             Forfeit Game
@@ -789,7 +759,7 @@ export default function GamePage() {
                                                     ? requestRematch()
                                                     : cancelRematchRequest()
                                             }
-                                            className='w-full text-white rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-[1.01]'
+                                            className='w-full transition-all hover:shadow-[0_8px_24px_-12px_rgba(139,52,255,0.45)]'
                                         >
                                             {rematch === "opponent_requested"
                                                 ? "Accept Rematch?"
@@ -800,8 +770,7 @@ export default function GamePage() {
                                     )}
                                     <Button
                                         onClick={() => handleReturnToMenu()}
-                                        variant='outline'
-                                        className='w-full text-white rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-[1.01]'
+                                        className='w-full border border-violet-200/10 bg-[#201b29] font-semibold text-zinc-200 shadow-sm transition-all hover:border-violet-300/30 hover:bg-[#292232] focus-visible:ring-violet-400'
                                     >
                                         <LogOut size={18} className='mr-2' />
                                         Leave Game
@@ -810,9 +779,9 @@ export default function GamePage() {
                             </Card>
 
                             {/* Move History Card */}
-                            <Card className='flex-shrink-0'>
-                                <CardHeader>
-                                    <CardTitle className='text-base'>
+                            <Card className='flex-shrink-0 gap-0 overflow-hidden rounded-lg border-white/10 bg-white/[0.025] py-0 shadow-[0_14px_42px_-30px_rgba(0,0,0,0.8)]'>
+                                <CardHeader className='px-4 py-4'>
+                                    <CardTitle className='text-sm font-semibold text-slate-100'>
                                         Move History
                                     </CardTitle>
                                 </CardHeader>

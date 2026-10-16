@@ -415,7 +415,7 @@ export function FlipFlop({
         <div className='relative w-full h-full'>
             <div
                 className={cn(
-                    "w-full h-full grid gap-0.5 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 shadow-inner border-4 border-gray-300 dark:border-gray-600",
+                    "w-full h-full grid gap-1 rounded-xl overflow-hidden bg-[#17131f] p-1 border border-violet-300/20 shadow-[0_18px_54px_-26px_rgba(80,35,125,0.55)]",
                     `${
                         type === GameType.FLIPFLOP_3x3
                             ? "grid-cols-3 grid-rows-3"
@@ -444,9 +444,9 @@ export function FlipFlop({
                             <div
                                 key={index}
                                 className={cn(
-                                    "flex items-center justify-center p-3 relative",
+                                    "relative flex items-center justify-center rounded-sm p-3 transition-[filter] duration-150 hover:brightness-105",
                                     goals.includes(index)
-                                        ? "border-4 border-red-600"
+                                        ? "ring-2 ring-inset ring-rose-300/80"
                                         : "",
                                 )}
                                 style={{
