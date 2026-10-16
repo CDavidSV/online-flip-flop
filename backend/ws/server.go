@@ -68,7 +68,7 @@ func (s *Server) getClientContext(socket *gws.Conn) (clientID string, room *Game
 
 // Generate a 4 character room ID.
 func (s *Server) generateRoomID() (string, error) {
-	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	charset := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	idLength := 4
 	maxAttempts := 1000
 
