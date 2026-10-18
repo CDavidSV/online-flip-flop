@@ -109,14 +109,25 @@ func TestGetMessagesReturnsLast100(t *testing.T) {
 	}
 }
 
-func TestCloseRoomIfInactive(t *testing.T) {
+func TestCloseRoomIfTimedOutForInactiveRoom(t *testing.T) {
 	room := newTestRoom(t, "multiplayer")
 	room.lastInactiveTime = time.Now().Add(-time.Hour)
 	room.player1.IsActive = false
 	room.conns = map[string]*ClientConnection{}
-	room.CloseRoomIfInactive()
+	room.CloseRoomIfTimedOut()
 	if !room.IsClosed() {
 		t.Fatal("inactive room should be closed")
+	}
+}
+
+func TestCloseRoomIfTimedOutForLongGame(t *testing.T) {
+	room := newTestRoom(t, "multiplayer")
+	gameStartTime := time.Now().Add(-3 * time.Hour)
+	room.gameStartTime = &gameStartTime
+	room.conns = map[string]*ClientConnection{}
+	room.CloseRoomIfTimedOut()
+	if !room.IsClosed() {
+		t.Fatal("long-running game should be closed")
 	}
 }
 

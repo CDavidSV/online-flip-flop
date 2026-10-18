@@ -69,6 +69,7 @@ type GameRoom struct {
 	playerMessages    []SavedMessage
 	spectatorMessages []SavedMessage
 	lastInactiveTime  time.Time
+	gameStartTime     *time.Time
 }
 
 const (
@@ -112,6 +113,7 @@ func NewGameRoom(config RoomConfig, player InitialPlayer) (*GameRoom, error) {
 		playerMessages:    []SavedMessage{},
 		spectatorMessages: []SavedMessage{},
 		lastInactiveTime:  time.Now(),
+		gameStartTime:     nil,
 	}
 
 	// Set up first player
@@ -421,6 +423,8 @@ func (gr *GameRoom) StartGame() bool {
 	if gr.playersActive() && !gr.gameStarted && gr.status == StatusWaitingStart {
 		gr.gameStarted = true
 		gr.status = StatusOngoing
+		now := time.Now()
+		gr.gameStartTime = &now
 		gr.broadcastGameUpdate(MsgTypeGameStart, gr.gameState(), nil)
 		return true
 	}
@@ -766,7 +770,7 @@ func (gr *GameRoom) GetCurrentInactiveTime() time.Time {
 	return gr.lastInactiveTime
 }
 
-func (gr *GameRoom) CloseRoomIfInactive() {
+func (gr *GameRoom) CloseRoomIfTimedOut() {
 	gr.mu.Lock()
 	defer gr.mu.Unlock()
 
@@ -774,21 +778,23 @@ func (gr *GameRoom) CloseRoomIfInactive() {
 		return
 	}
 
-	// Check if the room has been inactive for longer by the timeout
-	if (time.Since(gr.lastInactiveTime) > time.Duration(config.RoomInactiveTimeout)*time.Second) && gr.playersInactive() {
-		// Close the room
-		gr.status = StatusClosed
-
-		// Cancel any ongoing AI computation
-		if gr.aiThinking {
-			gr.cancelAIComputation()
-		}
-
-		// Kick out all remaining spectators
-		gr.broadcastGameUpdate(MsgTypeKicked, types.JSONMap{
-			"reason": "room_inactive",
-		}, nil)
+	reason := ""
+	if gr.gameStartTime != nil && time.Since(*gr.gameStartTime) > time.Duration(config.LongGameTimeout)*time.Second {
+		reason = "game_too_long"
+	} else if time.Since(gr.lastInactiveTime) > time.Duration(config.RoomInactiveTimeout)*time.Second && gr.playersInactive() {
+		reason = "room_inactive"
 	}
+	if reason == "" {
+		return
+	}
+
+	gr.status = StatusClosed
+	if gr.aiThinking {
+		gr.cancelAIComputation()
+	}
+	gr.broadcastGameUpdate(MsgTypeKicked, types.JSONMap{
+		"reason": reason,
+	}, nil)
 }
 
 func (gr *GameRoom) cancelAIComputation() {

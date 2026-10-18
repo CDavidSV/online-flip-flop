@@ -101,8 +101,8 @@ func NewGameServer(logger *slog.Logger) *Server {
 }
 
 func (s *Server) Start() {
-	// Starts the loop to periodically check for inactive rooms to delete.
-	go s.deleteInactiveRoomsJob()
+	// Starts the loop to periodically check for timed-out rooms to delete.
+	go s.deleteTimedoutRoomsJob()
 }
 
 func (s *Server) Stop() {
@@ -168,7 +168,7 @@ func (s *Server) GetGameRoom(roomID string) *GameRoom {
 }
 
 // Checks for inactive rooms every minute and deletes them if they have been inactive for longer than the configured timeout.
-func (s *Server) deleteInactiveRoomsJob() {
+func (s *Server) deleteTimedoutRoomsJob() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
@@ -183,7 +183,7 @@ func (s *Server) deleteInactiveRoomsJob() {
 				return true
 			})
 			for _, room := range roomsToDelete {
-				room.CloseRoomIfInactive()
+				room.CloseRoomIfTimedOut()
 				if room.IsClosed() {
 					s.DeleteGameRoom(room)
 				}
