@@ -77,9 +77,9 @@ export default function GamePage() {
     } = useGameRoom();
 
     const [copied, setCopied] = useState(false);
-    const [openDialog, setOpenDialog] = useState<"username" | "forfeit" | null>(
-        null,
-    );
+    const [openDialog, setOpenDialog] = useState<
+        "username" | "forfeit" | "leave" | null
+    >(null);
     const [joinLoading, setJoinLoading] = useState(false);
     const [forfeitLoading, setForfeitLoading] = useState(false);
     const [showLoadingOverlay, setShowLoadingOverlay] = useState(true);
@@ -287,6 +287,10 @@ export default function GamePage() {
     };
 
     const handleReturnToMenu = () => {
+        setOpenDialog("leave");
+    };
+
+    const confirmLeaveGame = () => {
         setShowGameEnd(false);
         router.push("/");
     };
@@ -530,6 +534,35 @@ export default function GamePage() {
                             variant='outline'
                             onClick={() => setOpenDialog(null)}
                             disabled={forfeitLoading}
+                        >
+                            Cancel
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog
+                open={openDialog === "leave"}
+                onOpenChange={(open) => setOpenDialog(open ? "leave" : null)}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Leave Game</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to leave this game?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className='flex-col sm:flex-col gap-2'>
+                        <Button
+                            className='w-full'
+                            variant='destructive'
+                            onClick={confirmLeaveGame}
+                        >
+                            Yes, Leave Game
+                        </Button>
+                        <Button
+                            className='w-full'
+                            variant='outline'
+                            onClick={() => setOpenDialog(null)}
                         >
                             Cancel
                         </Button>
