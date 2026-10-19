@@ -155,11 +155,12 @@ export default function Home() {
 
     const joinGameFormSubmit = (data: z.infer<typeof joinGameFormSchema>) => {
         setIsLoading(true);
+        const roomId = data.roomId.toUpperCase();
 
-        joinRoom(data.roomId, data.username)
+        joinRoom(roomId, data.username)
             .then(() => {
                 // Redirect user to game page
-                router.push(`/game/${data.roomId}`);
+                router.push(`/game/${roomId}`);
             })
             .catch((error) => {
                 setIsLoading(false);
@@ -250,7 +251,7 @@ export default function Home() {
                 target='_blank'
                 aria-label='Open FlipFlop on GitHub'
                 rel='noreferrer'
-                className='absolute right-4 top-4 z-10 flex size-9 items-center justify-center rounded-md border border-white/10 bg-white/[0.03] p-2 text-white/80 transition-colors hover:border-violet-400/50 hover:bg-violet-500/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400'
+                className='absolute right-4 top-4 z-10 flex size-9 items-center justify-center rounded-md border border-white/10 bg-white/3 p-2 text-white/80 transition-colors hover:border-violet-400/50 hover:bg-violet-500/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400'
                 href='https://github.com/CDavidSV/online-flip-flop'
             >
                 <svg
@@ -306,7 +307,10 @@ export default function Home() {
                                 )}
                             ></FormField>
                             {createGameform.formState.errors.root && (
-                                <div role='alert' className='rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-red-200'>
+                                <div
+                                    role='alert'
+                                    className='rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-red-200'
+                                >
                                     {
                                         createGameform.formState.errors.root
                                             .message
@@ -389,7 +393,10 @@ export default function Home() {
                                 )}
                             ></FormField>
                             {joinGameform.formState.errors.root && (
-                                <div role='alert' className='rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-red-200'>
+                                <div
+                                    role='alert'
+                                    className='rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-red-200'
+                                >
                                     {joinGameform.formState.errors.root.message}
                                 </div>
                             )}
@@ -435,38 +442,45 @@ export default function Home() {
                     <CarouselContent>
                         <CarouselItem className='flex flex-col items-center justify-center gap-5 px-2'>
                             <div className='flex flex-row flex-wrap justify-center gap-3 sm:gap-4'>
-                            <MenuButton
-                                text='Create Game'
-                                description='Start a new match'
-                                icon={<Sparkles className='size-7' />}
-                                onClick={() =>
-                                    carouselApi && carouselApi.scrollNext()
-                                }
-                            />
-                            <MenuButton
-                                text='Join Game'
-                                description='Enter a room code'
-                                icon={<DoorOpen className='size-7' />}
-                                onClick={() => setOpenDialog("join")}
-                            />
-                            <MenuButton
-                                text='Rules'
-                                description='Learn how to play'
-                                icon={<BookOpen className='size-7' />}
-                                onClick={() => setOpenDialog("rules")}
-                            />
+                                <MenuButton
+                                    text='Create Game'
+                                    description='Start a new match'
+                                    icon={<Sparkles className='size-7' />}
+                                    onClick={() =>
+                                        carouselApi && carouselApi.scrollNext()
+                                    }
+                                />
+                                <MenuButton
+                                    text='Join Game'
+                                    description='Enter a room code'
+                                    icon={<DoorOpen className='size-7' />}
+                                    onClick={() => setOpenDialog("join")}
+                                />
+                                <MenuButton
+                                    text='Rules'
+                                    description='Learn how to play'
+                                    icon={<BookOpen className='size-7' />}
+                                    onClick={() => setOpenDialog("rules")}
+                                />
                             </div>
                         </CarouselItem>
                         <CarouselItem className='flex flex-col items-center justify-center gap-5 px-2'>
                             <div className='text-center'>
-                                <p className='text-xs font-medium uppercase tracking-[0.18em] text-violet-300'>New game</p>
-                                <h2 className='mt-1 text-xl font-semibold tracking-tight text-white'>Choose a game mode</h2>
+                                <p className='text-xs font-medium uppercase tracking-[0.18em] text-violet-300'>
+                                    New game
+                                </p>
+                                <h2 className='mt-1 text-xl font-semibold tracking-tight text-white'>
+                                    Choose a game mode
+                                </h2>
                             </div>
                             <div className='flex flex-row flex-wrap justify-center gap-3 sm:gap-4'>
                                 <MenuButton
                                     text='Singleplayer'
                                     description='Play against the computer'
-                                    selected={gameConfig.mode === GameMode.SINGLEPLAYER}
+                                    selected={
+                                        gameConfig.mode ===
+                                        GameMode.SINGLEPLAYER
+                                    }
                                     icon={<User className='size-7' />}
                                     onClick={() => {
                                         setGameConfig((prev) => ({
@@ -479,7 +493,9 @@ export default function Home() {
                                 <MenuButton
                                     text='Multiplayer'
                                     description='Play with other players'
-                                    selected={gameConfig.mode === GameMode.MULTIPLAYER}
+                                    selected={
+                                        gameConfig.mode === GameMode.MULTIPLAYER
+                                    }
                                     icon={<Users2 className='size-7' />}
                                     onClick={() => {
                                         setGameConfig((prev) => ({
@@ -502,25 +518,35 @@ export default function Home() {
                         </CarouselItem>
                         <CarouselItem className='flex flex-col items-center justify-center gap-5 px-2'>
                             <div className='text-center'>
-                                <p className='text-xs font-medium uppercase tracking-[0.18em] text-violet-300'>New game</p>
-                                <h2 className='mt-1 text-xl font-semibold tracking-tight text-white'>Choose a board size</h2>
+                                <p className='text-xs font-medium uppercase tracking-[0.18em] text-violet-300'>
+                                    New game
+                                </p>
+                                <h2 className='mt-1 text-xl font-semibold tracking-tight text-white'>
+                                    Choose a board size
+                                </h2>
                             </div>
                             <div className='flex flex-row flex-wrap justify-center gap-3 sm:gap-4'>
                                 <MenuButton
                                     text='FlipFlop 3x3'
                                     description='A smaller, faster game'
-                                    selected={gameConfig.type === GameType.FLIPFLOP_3x3}
+                                    selected={
+                                        gameConfig.type ===
+                                        GameType.FLIPFLOP_3x3
+                                    }
                                     icon={
                                         <span
                                             aria-hidden='true'
-                                            className='grid size-7 grid-cols-3 gap-[2px]'
+                                            className='grid size-7 grid-cols-3 gap-0.5'
                                         >
-                                            {Array.from({ length: 9 }, (_, index) => (
-                                                <span
-                                                    key={index}
-                                                    className='rounded-[1px] border border-current'
-                                                />
-                                            ))}
+                                            {Array.from(
+                                                { length: 9 },
+                                                (_, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className='rounded-[1px] border border-current'
+                                                    />
+                                                ),
+                                            )}
                                         </span>
                                     }
                                     onClick={() => {
@@ -541,18 +567,24 @@ export default function Home() {
                                 <MenuButton
                                     text='FlipFlop 5x5'
                                     description='A deeper, strategic game'
-                                    selected={gameConfig.type === GameType.FLIPFLOP_5x5}
+                                    selected={
+                                        gameConfig.type ===
+                                        GameType.FLIPFLOP_5x5
+                                    }
                                     icon={
                                         <span
                                             aria-hidden='true'
-                                            className='grid size-7 grid-cols-5 gap-[2px]'
+                                            className='grid size-7 grid-cols-5 gap-0.5'
                                         >
-                                            {Array.from({ length: 25 }, (_, index) => (
-                                                <span
-                                                    key={index}
-                                                    className='rounded-[1px] border border-current'
-                                                />
-                                            ))}
+                                            {Array.from(
+                                                { length: 25 },
+                                                (_, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className='rounded-[1px] border border-current'
+                                                    />
+                                                ),
+                                            )}
                                         </span>
                                     }
                                     onClick={() => {
@@ -583,14 +615,21 @@ export default function Home() {
                         </CarouselItem>
                         <CarouselItem className='flex flex-col items-center justify-center gap-5 px-2'>
                             <div className='text-center'>
-                                <p className='text-xs font-medium uppercase tracking-[0.18em] text-violet-300'>Singleplayer</p>
-                                <h2 className='mt-1 text-xl font-semibold tracking-tight text-white'>Choose a difficulty</h2>
+                                <p className='text-xs font-medium uppercase tracking-[0.18em] text-violet-300'>
+                                    Singleplayer
+                                </p>
+                                <h2 className='mt-1 text-xl font-semibold tracking-tight text-white'>
+                                    Choose a difficulty
+                                </h2>
                             </div>
                             <div className='flex flex-row flex-wrap justify-center gap-3 sm:gap-4'>
                                 <MenuButton
                                     text='Easy'
                                     description='A relaxed match'
-                                    selected={gameConfig.difficulty === AIDDifficulty.EASY}
+                                    selected={
+                                        gameConfig.difficulty ===
+                                        AIDDifficulty.EASY
+                                    }
                                     icon={<Smile className='size-7' />}
                                     onClick={() => {
                                         setGameConfig((prev) => ({
@@ -603,7 +642,10 @@ export default function Home() {
                                 <MenuButton
                                     text='Medium'
                                     description='A balanced challenge'
-                                    selected={gameConfig.difficulty === AIDDifficulty.MEDIUM}
+                                    selected={
+                                        gameConfig.difficulty ===
+                                        AIDDifficulty.MEDIUM
+                                    }
                                     icon={<Meh className='size-7' />}
                                     onClick={() => {
                                         setGameConfig((prev) => ({
@@ -616,7 +658,10 @@ export default function Home() {
                                 <MenuButton
                                     text='Hard'
                                     description='A tough opponent'
-                                    selected={gameConfig.difficulty === AIDDifficulty.HARD}
+                                    selected={
+                                        gameConfig.difficulty ===
+                                        AIDDifficulty.HARD
+                                    }
                                     icon={<Frown className='size-7' />}
                                     onClick={() => {
                                         setGameConfig((prev) => ({

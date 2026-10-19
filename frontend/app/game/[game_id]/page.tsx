@@ -109,6 +109,7 @@ export default function GamePage() {
     const [initialChatMessages, setInitialChatMessages] = useState<
         ChatMessage[]
     >([]);
+    const [initialSpectatorCount, setInitialSpectatorCount] = useState(0);
 
     const isMyTurn = !isSpectator && currentTurn === currentPlayer?.color;
 
@@ -241,6 +242,7 @@ export default function GamePage() {
                 setOpenDialog(null);
                 setJoinLoading(false);
                 setInitialChatMessages(value.messages || []);
+                setInitialSpectatorCount(value.spectator_count || 0);
 
                 if (value.is_spectator) {
                     setInitialGameBoard(value.game_state.board);
@@ -548,7 +550,7 @@ export default function GamePage() {
                             gameEndResult.reason === "draw"
                                 ? "border-white/10"
                                 : gameEndResult.winner === currentPlayer?.color
-                                                                    ? "border-emerald-400/30 shadow-[0_24px_80px_-32px_rgba(16,185,129,0.3)]"
+                                  ? "border-emerald-400/30 shadow-[0_24px_80px_-32px_rgba(16,185,129,0.3)]"
                                   : "border-rose-400/25",
                         )}
                     >
@@ -557,8 +559,9 @@ export default function GamePage() {
                                 "text-xs font-semibold uppercase tracking-[0.18em]",
                                 gameEndResult.reason === "draw"
                                     ? "text-muted-foreground"
-                                    : gameEndResult.winner === currentPlayer?.color
-                                                                            ? "text-emerald-300"
+                                    : gameEndResult.winner ===
+                                        currentPlayer?.color
+                                      ? "text-emerald-300"
                                       : "text-rose-300",
                             )}
                         >
@@ -570,8 +573,9 @@ export default function GamePage() {
                                 "mt-3 text-3xl font-bold sm:text-4xl",
                                 gameEndResult.reason === "draw"
                                     ? "text-white"
-                                    : gameEndResult.winner === currentPlayer?.color
-                                                                            ? "text-emerald-100"
+                                    : gameEndResult.winner ===
+                                        currentPlayer?.color
+                                      ? "text-emerald-100"
                                       : "text-rose-100",
                             )}
                         >
@@ -579,7 +583,8 @@ export default function GamePage() {
                                 ? "GAME OVER"
                                 : gameEndResult.reason === "draw"
                                   ? "DRAW"
-                                  : gameEndResult.winner === currentPlayer?.color
+                                  : gameEndResult.winner ===
+                                      currentPlayer?.color
                                     ? "VICTORY"
                                     : "DEFEAT"}
                         </h2>
@@ -590,7 +595,8 @@ export default function GamePage() {
                                     : `${gameEndResult.winner === PlayerColor.WHITE ? "White" : "Black"} wins the match.`
                                 : gameEndResult.reason === "draw"
                                   ? "Well played. The match ended in a draw."
-                                  : gameEndResult.winner === currentPlayer?.color
+                                  : gameEndResult.winner ===
+                                      currentPlayer?.color
                                     ? "You won the match. Ready for another?"
                                     : "This one got away. Ready to try again?"}
                         </p>
@@ -608,14 +614,14 @@ export default function GamePage() {
                                     <Button
                                         variant='outline'
                                         onClick={handleReturnToMenu}
-                                        className='h-10 border-white/10 bg-white/[0.025] hover:border-violet-300/30 hover:bg-violet-500/[0.07] sm:flex-1'
+                                        className='h-10 border-white/10 bg-white/2.5 hover:border-violet-300/30 hover:bg-violet-500/[0.07] sm:flex-1'
                                     >
                                         Leave Game
                                     </Button>
                                     <Button
                                         variant='outline'
                                         onClick={() => setShowGameEnd(false)}
-                                        className='h-10 border-white/10 bg-white/[0.025] hover:border-violet-300/30 hover:bg-violet-500/[0.07] sm:flex-1'
+                                        className='h-10 border-white/10 bg-white/2.5 hover:border-violet-300/30 hover:bg-violet-500/[0.07] sm:flex-1'
                                     >
                                         Back to game
                                     </Button>
@@ -649,13 +655,13 @@ export default function GamePage() {
                 ) : (
                     <div className='game-stage flex min-h-dvh flex-col gap-3 p-3 text-foreground md:h-dvh md:flex-row md:gap-4 md:overflow-hidden md:p-4'>
                         {/* Main Game Area */}
-                        <div className='relative mb-0 flex min-w-0 flex-1 flex-col items-center justify-start rounded-lg border border-white/10 bg-white/[0.025] p-3 shadow-[0_20px_70px_-38px_rgba(0,0,0,0.8)] md:overflow-hidden md:p-5'>
+                        <div className='relative mb-0 flex min-w-0 flex-1 flex-col items-center justify-start rounded-lg border border-white/10 bg-white/2.5 p-3 shadow-[0_20px_70px_-38px_rgba(0,0,0,0.8)] md:overflow-hidden md:p-5'>
                             <div className='w-full'>
                                 {gameStatus === "ongoing" && (
                                     <div
                                         className={`w-fit px-2 py-1 md:px-4 md:py-2 rounded-md md:rounded-lg font-semibold text-xs shadow-lg md:text-sm transition-all ${
                                             currentTurn === currentPlayer?.color
-                                                ? "bg-violet-600/90 text-white shadow-violet-950/40 animate-pulse"
+                                                ? "bg-blue-600/90 text-white shadow-blue-950/40 animate-pulse"
                                                 : "bg-red-600/90 text-white shadow-red-950/30"
                                         }`}
                                     >
@@ -679,7 +685,7 @@ export default function GamePage() {
                                     : "Waiting for player to join..."}
                             </div>
 
-                            <div className='w-full aspect-square md:aspect-auto md:flex-1 md:min-h-0 flex items-center justify-center md:[container-type:size]'>
+                            <div className='w-full aspect-square md:aspect-auto md:flex-1 md:min-h-0 flex items-center justify-center md:@container-size'>
                                 <div className='w-full h-full md:h-auto md:aspect-square md:w-[min(100cqw,100cqh)]'>
                                     <FlipFlop
                                         type={gameType}
@@ -693,15 +699,15 @@ export default function GamePage() {
                                 </div>
                             </div>
 
-                            <div className='mt-4 text-sm font-medium text-violet-300'>
+                            <div className='mt-4 text-sm font-medium text-blue-300'>
                                 {currentPlayer && currentPlayer.is_active
                                     ? currentPlayer?.username
                                     : "Waiting for player to join..."}
                             </div>
                         </div>
 
-                        <div className='mb-0 flex w-full flex-col gap-3 overflow-y-auto md:min-h-0 md:w-[22rem] md:gap-4'>
-                            <Card className='flex-shrink-0 gap-0 overflow-hidden rounded-lg border-white/10 bg-white/[0.025] py-0 shadow-[0_14px_42px_-30px_rgba(0,0,0,0.8)]'>
+                        <div className='mb-0 flex w-full flex-col gap-3 overflow-y-auto md:min-h-0 md:w-88 md:gap-4'>
+                            <Card className='shrink-0 gap-0 overflow-hidden rounded-lg border-white/10 bg-white/2.5 py-0 shadow-[0_14px_42px_-30px_rgba(0,0,0,0.8)]'>
                                 <CardHeader className='gap-1 px-4 py-4'>
                                     <CardTitle className='flex items-center justify-between text-sm font-semibold text-slate-100'>
                                         Game Room
@@ -719,7 +725,7 @@ export default function GamePage() {
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className='flex flex-col gap-3 px-4'>
-                                    <div className='flex items-center justify-between rounded-md border border-white/[0.08] bg-black/25 p-2'>
+                                    <div className='flex items-center justify-between rounded-md border border-white/8 bg-black/25 p-2'>
                                         <span className='font-mono text-base truncate'>
                                             {game_id}
                                         </span>
@@ -727,7 +733,7 @@ export default function GamePage() {
                                             variant='ghost'
                                             size='icon'
                                             onClick={copyRoomId}
-                                            className='ml-2 h-8 w-8 flex-shrink-0 text-slate-300 hover:bg-violet-500/10 hover:text-white'
+                                            className='ml-2 h-8 w-8 shrink-0 text-slate-300 hover:bg-violet-500/10 hover:text-white'
                                         >
                                             {copied ? (
                                                 <Check
@@ -779,7 +785,7 @@ export default function GamePage() {
                             </Card>
 
                             {/* Move History Card */}
-                            <Card className='flex-shrink-0 gap-0 overflow-hidden rounded-lg border-white/10 bg-white/[0.025] py-0 shadow-[0_14px_42px_-30px_rgba(0,0,0,0.8)]'>
+                            <Card className='shrink-0 gap-0 overflow-hidden rounded-lg border-white/10 bg-white/2.5 py-0 shadow-[0_14px_42px_-30px_rgba(0,0,0,0.8)]'>
                                 <CardHeader className='px-4 py-4'>
                                     <CardTitle className='text-sm font-semibold text-slate-100'>
                                         Move History
@@ -797,7 +803,10 @@ export default function GamePage() {
                             </Card>
 
                             {/* Chat Card */}
-                            <Chat initialMessages={initialChatMessages} />
+                            <Chat
+                                initialMessages={initialChatMessages}
+                                initialSpectatorCount={initialSpectatorCount}
+                            />
                         </div>
                     </div>
                 )}

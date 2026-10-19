@@ -71,6 +71,7 @@ const gameRoomContext = createContext<GameRoomContext>({
     joinRoom: async () => {
         return {
             is_spectator: false,
+            spectator_count: 0,
             game_type: GameType.FLIPFLOP_3x3,
             game_mode: GameMode.MULTIPLAYER,
             game_state: {
@@ -238,9 +239,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         );
 
         const cleanupKicked = on("kicked", () => {
-            toast.warning(
-                "Game room was closed due to inactivity.",
-            );
+            toast.warning("Game room was closed due to inactivity.");
             resetState();
             router.push("/");
         });

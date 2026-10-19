@@ -38,12 +38,12 @@ export function MoveHistory({
                 {moves.map((move) => (
                     <div
                         key={move.id}
-                                                className={`mt-1 flex items-center justify-between rounded-md border-l-2 px-3 py-2 transition-colors ${
+                        className={`mb-1 flex items-center justify-between rounded-md border-l-2 px-3 py-2 transition-colors ${
                             isSpectator
-                                                                ? "border-slate-400/60 bg-slate-500/10 text-slate-100"
+                                ? "border-slate-400/60 bg-slate-500/10 text-slate-100"
                                 : move.player === currentPlayerUsername
-                                                                    ? "border-violet-400/70 bg-violet-500/15 text-violet-100"
-                                                                    : "border-red-400/60 bg-red-500/10 text-red-100"
+                                  ? "border-violet-400/70 bg-violet-500/15 text-violet-100"
+                                  : "border-red-400/60 bg-red-500/10 text-red-100"
                         }`}
                     >
                         <span className='text-sm font-medium w-3/4'>

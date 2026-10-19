@@ -46,30 +46,30 @@ type GameState struct {
 }
 
 type SavedMessage struct {
-	ClientID string `json:"client_id"`
-	Username string `json:"username"`
-	Message  string `json:"message"`
+	ClientID    string `json:"client_id"`
+	Username    string `json:"username"`
+	Message     string `json:"message"`
+	IsSpectator bool   `json:"is_spectator"`
 }
 
 type GameRoom struct {
-	ID                string
-	Game              games.Game
-	GameMode          GameMode
-	GameType          games.GameType
-	gameStarted       bool
-	ai                ai.AI
-	aiThinking        bool
-	aiCancelFunc      context.CancelFunc
-	player1           *PlayerSlot
-	player2           *PlayerSlot
-	conns             map[string]*ClientConnection
-	status            Status
-	logger            *slog.Logger
-	mu                sync.RWMutex
-	playerMessages    []SavedMessage
-	spectatorMessages []SavedMessage
-	lastInactiveTime  time.Time
-	gameStartTime     *time.Time
+	ID               string
+	Game             games.Game
+	GameMode         GameMode
+	GameType         games.GameType
+	gameStarted      bool
+	ai               ai.AI
+	aiThinking       bool
+	aiCancelFunc     context.CancelFunc
+	player1          *PlayerSlot
+	player2          *PlayerSlot
+	conns            map[string]*ClientConnection
+	status           Status
+	logger           *slog.Logger
+	mu               sync.RWMutex
+	messages         []SavedMessage
+	lastInactiveTime time.Time
+	gameStartTime    *time.Time
 }
 
 const (
@@ -102,18 +102,17 @@ func NewGameRoom(config RoomConfig, player InitialPlayer) (*GameRoom, error) {
 	}
 
 	room := &GameRoom{
-		ID:                config.ID,
-		Game:              game,
-		GameMode:          config.GameMode,
-		GameType:          config.GameType,
-		gameStarted:       false,
-		conns:             make(map[string]*ClientConnection),
-		status:            StatusWaiting,
-		logger:            config.Logger,
-		playerMessages:    []SavedMessage{},
-		spectatorMessages: []SavedMessage{},
-		lastInactiveTime:  time.Now(),
-		gameStartTime:     nil,
+		ID:               config.ID,
+		Game:             game,
+		GameMode:         config.GameMode,
+		GameType:         config.GameType,
+		gameStarted:      false,
+		conns:            make(map[string]*ClientConnection),
+		status:           StatusWaiting,
+		logger:           config.Logger,
+		messages:         []SavedMessage{},
+		lastInactiveTime: time.Now(),
+		gameStartTime:    nil,
 	}
 
 	// Set up first player
@@ -379,6 +378,13 @@ func (gr *GameRoom) EnterRoom(id string, conn *gws.Conn, username string) (isSpe
 	// Join as spectator
 	clientConnection.isSpectator = true
 
+	// Notify that a spectator has joined
+	gr.broadcastGameUpdate(MsgSpectatorJoined, types.JSONMap{
+		"spectator_id":    id,
+		"username":        username,
+		"spectator_count": gr.spectatorCount(),
+	}, &id)
+
 	return true, nil
 }
 
@@ -411,6 +417,11 @@ func (gr *GameRoom) LeaveRoom(id string) {
 		if gr.playersInactive() {
 			gr.lastInactiveTime = time.Now()
 		}
+	} else {
+		gr.broadcastGameUpdate(MsgSpectatorLeft, types.JSONMap{
+			"spectator_id":    id,
+			"spectator_count": gr.spectatorCount(),
+		}, &id)
 	}
 }
 
@@ -598,8 +609,8 @@ func (gr *GameRoom) handleAIMove() {
 
 // Handles a chat message sent by a client and broadcasts it to other clients.
 func (gr *GameRoom) HandleChatMessage(clientID, requestID, message string) error {
-	gr.mu.RLock()
-	defer gr.mu.RUnlock()
+	gr.mu.Lock()
+	defer gr.mu.Unlock()
 
 	if gr.status == StatusClosed {
 		return apperrors.ErrRoomClosed
@@ -616,9 +627,10 @@ func (gr *GameRoom) HandleChatMessage(clientID, requestID, message string) error
 	}
 
 	msg := NewMessage(MsgTypeChat, types.JSONMap{
-		"client_id": clientID,
-		"username":  sender.Username,
-		"message":   message,
+		"client_id":    clientID,
+		"username":     sender.Username,
+		"message":      message,
+		"is_spectator": sender.isSpectator,
 	}, "")
 
 	ackMsg := NewMessage(MsgTypeAck, nil, requestID)
@@ -631,28 +643,21 @@ func (gr *GameRoom) HandleChatMessage(clientID, requestID, message string) error
 	b := gws.NewBroadcaster(gws.OpcodeText, msg)
 	defer b.Close()
 
-	// Broadcast message to spectators or players
+	gr.messages = append(gr.messages, SavedMessage{
+		ClientID:    clientID,
+		Username:    sender.Username,
+		Message:     message,
+		IsSpectator: sender.isSpectator,
+	})
+
+	// Broadcast the room chat to every other client.
 	for _, clientConn := range gr.conns {
 		if clientConn.ID == clientID {
 			continue
 		}
 
-		if clientConn.isSpectator == sender.isSpectator {
-			if err := b.Broadcast(clientConn.conn); err != nil {
-				gr.logger.Error("Failed to broadcast chat message", "error", err)
-			}
-
-			// Same message to history
-			msg := SavedMessage{
-				ClientID: clientID,
-				Username: sender.Username,
-				Message:  message,
-			}
-			if !sender.isSpectator {
-				gr.playerMessages = append(gr.playerMessages, msg)
-			} else {
-				gr.spectatorMessages = append(gr.spectatorMessages, msg)
-			}
+		if err := b.Broadcast(clientConn.conn); err != nil {
+			gr.logger.Error("Failed to broadcast chat message", "error", err)
 		}
 	}
 
@@ -744,23 +749,33 @@ func (gr *GameRoom) IsClosed() bool {
 	return gr.status == StatusClosed
 }
 
-func (gr *GameRoom) GetMessages(spectator bool) []SavedMessage {
+func (gr *GameRoom) GetMessages() []SavedMessage {
 	gr.mu.RLock()
 	defer gr.mu.RUnlock()
 
-	var messages []SavedMessage
-	if spectator {
-		messages = gr.spectatorMessages
-	} else {
-		messages = gr.playerMessages
-	}
-
 	// Return the last 100 elements of the array
-	if len(messages) > 100 {
-		return messages[len(messages)-100:]
+	if len(gr.messages) > 100 {
+		return gr.messages[len(gr.messages)-100:]
 	}
 
-	return messages
+	return gr.messages
+}
+
+func (gr *GameRoom) GetSpectatorCount() int {
+	gr.mu.RLock()
+	defer gr.mu.RUnlock()
+
+	return gr.spectatorCount()
+}
+
+func (gr *GameRoom) spectatorCount() int {
+	count := 0
+	for _, conn := range gr.conns {
+		if conn.isSpectator {
+			count++
+		}
+	}
+	return count
 }
 
 func (gr *GameRoom) GetCurrentInactiveTime() time.Time {

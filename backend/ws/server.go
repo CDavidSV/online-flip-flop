@@ -300,11 +300,12 @@ func (s *Server) handleJoinRoom(socket *gws.Conn, msg IncomingMessage) {
 	s.logger.Debug("Client joined game room", "room_id", room.ID, "client_id", clientID, "is_spectator", isSpectator)
 
 	socket.WriteAsync(gws.OpcodeText, NewMessage(MsgTypeJoinedRoom, types.JSONMap{
-		"is_spectator": isSpectator,
-		"game_mode":    room.GameMode,
-		"game_type":    room.GameType,
-		"game_state":   room.GetGameState(),
-		"messages":     room.GetMessages(isSpectator),
+		"is_spectator":    isSpectator,
+		"game_mode":       room.GameMode,
+		"game_type":       room.GameType,
+		"game_state":      room.GetGameState(),
+		"spectator_count": room.GetSpectatorCount(),
+		"messages":        room.GetMessages(),
 	}, msg.RequestID), func(err error) {
 		if err != nil {
 			s.logger.Error("Failed to send join room confirmation", "error", err)

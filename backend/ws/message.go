@@ -22,6 +22,8 @@ const (
 	MsgTypeKicked           MsgType = "kicked"            // Notification that a player has been kicked from the room
 	MsgPlayerLeftRoom       MsgType = "player_left"       // Notification that a player has left the room
 	MsgPlayerRejoined       MsgType = "player_rejoined"   // Notification that a player has rejoined the room
+	MsgSpectatorJoined      MsgType = "spectator_joined"  // Notification that a spectator has joined the room
+	MsgSpectatorLeft        MsgType = "spectator_left"    // Notification that a spectator has left the room
 	MsgTypeMove             MsgType = "move"              // Make a move in the game
 	MsgTypeAck              MsgType = "ack"               // Acknowledgment of a received message
 	MsgTypeGameStart        MsgType = "start"             // Notification that the game has started

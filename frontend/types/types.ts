@@ -55,13 +55,20 @@ type WSEventType =
     | "chat"
     | "end"
     | "player_rejoined"
+    | "spectator_joined"
+    | "spectator_left"
     | "joined"
     | "rematch_requested"
     | "rematch_cancelled"
     | "kicked";
 
 // Game state types
-type GameStatus = "waiting_for_players" | "waiting_for_start" | "ongoing" | "closed" | "ended";
+type GameStatus =
+    | "waiting_for_players"
+    | "waiting_for_start"
+    | "ongoing"
+    | "closed"
+    | "ended";
 
 interface CreateGameRequest {
     username: string;
@@ -108,6 +115,7 @@ interface GameState {
 
 interface JoinGameResponse {
     is_spectator: boolean;
+    spectator_count: number;
     game_type: GameType;
     game_mode: GameMode;
     game_state: GameState;
@@ -119,9 +127,10 @@ interface MessageSendRequest {
 }
 
 interface MessageEvent {
-    clientId: string;
+    client_id: string;
     username: string;
     message: string;
+    is_spectator: boolean;
 }
 
 interface Player {
@@ -172,6 +181,7 @@ interface ChatMessage {
     client_id: string;
     username: string;
     message: string;
+    is_spectator?: boolean;
 }
 
 interface PlayerRequestedRematchMsg {

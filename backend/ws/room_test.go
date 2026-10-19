@@ -61,9 +61,13 @@ func TestEnterRoomAssignsSecondPlayerAndSpectator(t *testing.T) {
 		t.Fatalf("second player/state = %#v/%q, want black/waiting", room.player2, room.status)
 	}
 
+	room.conns = map[string]*ClientConnection{}
 	isSpectator, err = room.EnterRoom("spectator", nil, "Sam")
 	if err != nil || !isSpectator || !room.conns["spectator"].isSpectator {
 		t.Fatalf("spectator join = (%v, %v), connection = %#v", isSpectator, err, room.conns["spectator"])
+	}
+	if count := room.GetSpectatorCount(); count != 1 {
+		t.Fatalf("spectator count = %d, want 1", count)
 	}
 }
 
@@ -101,9 +105,9 @@ func TestValidateActionStatus(t *testing.T) {
 func TestGetMessagesReturnsLast100(t *testing.T) {
 	room := newTestRoom(t, "multiplayer")
 	for i := range 105 {
-		room.playerMessages = append(room.playerMessages, SavedMessage{Message: string(rune(i))})
+		room.messages = append(room.messages, SavedMessage{Message: string(rune(i))})
 	}
-	messages := room.GetMessages(false)
+	messages := room.GetMessages()
 	if len(messages) != 100 || messages[0].Message != string(rune(5)) {
 		t.Fatalf("messages = len %d, first %q; want len 100, fifth message", len(messages), messages[0].Message)
 	}
