@@ -34,8 +34,13 @@ export function Chat({
     initialSpectatorCount?: number;
 }) {
     const { clientId, isConnected, on, sendRequest } = useWebSocket();
-    const { isSpectator, gameStatus, currentPlayer, opponentPlayer } =
-        useGameRoom();
+    const {
+        isSpectator,
+        gameStartPending,
+        acknowledgeGameStart,
+        currentPlayer,
+        opponentPlayer,
+    } = useGameRoom();
 
     const nextEntryId = useRef(initialMessages?.length ?? 0);
     const [chatEntries, setChatEntries] = useState<ChatEntry[]>(() =>
@@ -52,7 +57,6 @@ export function Chat({
 
     const bottomChatRef = useRef<HTMLSpanElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
-    const hasReportedGameStartRef = useRef(gameStatus === "ongoing");
     const usernamesByIdRef = useRef(new Map<string, string>());
     const usernamesByColorRef = useRef(new Map<PlayerColor, string>());
 
@@ -83,11 +87,11 @@ export function Chat({
     }, []);
 
     useEffect(() => {
-        if (gameStatus === "ongoing" && !hasReportedGameStartRef.current) {
-            hasReportedGameStartRef.current = true;
-            appendStatus("Game started.");
-        }
-    }, [appendStatus, gameStatus]);
+        if (!gameStartPending) return;
+
+        appendStatus("Game started.");
+        acknowledgeGameStart();
+    }, [acknowledgeGameStart, appendStatus, gameStartPending]);
 
     const handleChatMuteChange = (muted: boolean) => {
         setIsChatMuted(muted);
@@ -213,6 +217,24 @@ export function Chat({
             }
             appendStatus(`${name} rejoined the room.`);
         });
+        const cleanupRematchRequested = on<{ player_id: string }>(
+            "rematch_requested",
+            (payload) => {
+                const name =
+                    usernamesByIdRef.current.get(payload.player_id) ||
+                    "A player";
+                appendStatus(`${name} requested a rematch.`);
+            },
+        );
+        const cleanupRematchCancelled = on<{ player_id: string }>(
+            "rematch_cancelled",
+            (payload) => {
+                const name =
+                    usernamesByIdRef.current.get(payload.player_id) ||
+                    "A player";
+                appendStatus(`${name} cancelled their rematch request.`);
+            },
+        );
         const cleanupStart = on<{
             players: { id: string; username: string; color: PlayerColor }[];
         }>("start", (payload) => {
@@ -224,8 +246,6 @@ export function Chat({
                 usernamesByIdRef.current.set(player.id, player.username);
                 usernamesByColorRef.current.set(player.color, player.username);
             }
-            hasReportedGameStartRef.current = true;
-            appendStatus("Game started.");
         });
         const cleanupEnd = on<{
             reason: string;
@@ -246,6 +266,8 @@ export function Chat({
             cleanupLeft();
             cleanupPlayerLeft();
             cleanupPlayerRejoined();
+            cleanupRematchRequested();
+            cleanupRematchCancelled();
             cleanupStart();
             cleanupEnd();
         };

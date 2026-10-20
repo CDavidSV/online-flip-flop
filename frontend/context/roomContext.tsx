@@ -34,6 +34,8 @@ interface GameRoomContext {
     inRoom: boolean;
     isSpectator: boolean;
     gameStatus: GameStatus;
+    gameStartPending: boolean;
+    acknowledgeGameStart: () => void;
     gameType: GameType | null;
     gameMode: GameMode | null;
     currentPlayer: Player | null;
@@ -59,6 +61,8 @@ const gameRoomContext = createContext<GameRoomContext>({
     inRoom: false,
     isSpectator: false,
     gameStatus: "waiting_for_players",
+    gameStartPending: false,
+    acknowledgeGameStart: () => {},
     gameType: null,
     gameMode: null,
     currentPlayer: null,
@@ -121,6 +125,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
     const [gameStatus, setGameStatus] = useState<GameStatus>(
         "waiting_for_players",
     );
+    const [gameStartPending, setGameStartPending] = useState(false);
     const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
     const [opponentPlayer, setOpponentPlayer] = useState<Player | null>(null);
     const [currentTurn, setCurrentTurn] = useState<PlayerColor | null>(null);
@@ -179,9 +184,11 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         );
 
         const cleanupStart = on("start", (payload: any) => {
-            if (!payload && !payload.players) {
+            if (!payload?.players) {
                 return;
             }
+
+            setGameStartPending(true);
 
             // Find current player and opponent from the payload
             const current = payload.players.find((p: any) => p.id === clientId);
@@ -273,6 +280,7 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
         setRoomId(null);
         setInRoom(false);
         setIsSpectator(false);
+        setGameStartPending(false);
         setGameType(null);
         setGameMode(null);
         setGameStatus("waiting_for_players");
@@ -455,6 +463,8 @@ export function GameRoomProvider({ children }: { children: ReactNode }) {
                 gameType,
                 gameMode,
                 gameStatus,
+                gameStartPending,
+                acknowledgeGameStart: () => setGameStartPending(false),
                 currentPlayer,
                 opponentPlayer,
                 currentTurn,
